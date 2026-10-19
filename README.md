@@ -51,6 +51,7 @@ for live sync) and writes screenshots to `test-results/`.
 
 CI builds and tests the Nix container on every push and publishes
 `ghcr.io/fruitiex/stretch` from `main`, then dispatches `image-update` to
-`FruitieX/homelab` (`apps/stretch`), which serves it on the private gateway
+`FruitieX/homelab` (`apps/stretch`), which serves it at
+https://stretch.fruitiex.org on the private gateway
 only. The app has no authentication. Data is one SQLite file in `/data`;
 `stretch-api --backup <dest>` writes a consistent copy.
