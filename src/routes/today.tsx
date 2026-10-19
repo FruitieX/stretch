@@ -56,7 +56,7 @@ function Editor({
             role="radio"
             aria-checked={activity === a}
             onClick={() => setActivity(a)}
-            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm ring-1 ${
+            className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold ring-1 ${
               activity === a ? 'text-white ring-transparent' : 'ring-line'
             }`}
             style={activity === a ? { background: color(a) } : undefined}
@@ -112,7 +112,7 @@ export function TodayPage() {
       </Card>
       <Card>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-medium">Changes today</h2>
+          <h2 className="text-xl font-bold">Changes today</h2>
           {editing !== 'new' && (
             <Button variant="ghost" onClick={() => setEditing('new')}>
               <Plus size={16} /> Add

@@ -7,7 +7,9 @@ import type { Row } from '../lib/backfill.ts'
 import { MINUTE, atClock, clock, duration, startOfDay } from '../lib/time.ts'
 
 const CHOICES: Activity[] = ['sit', 'stand', 'walk', 'eat', 'break']
-const AGO = [15, 30, 60, 120]
+const AGO = [5, 10, 15, 30]
+/** Adjust is for longer backfills. */
+const AGO_LONG = [15, 30, 60, 120]
 
 const ago = (m: number) => (m < 60 ? `${m}m` : `${m / 60}h`)
 
@@ -64,11 +66,11 @@ export function AdjustPast({ onClose }: { onClose: () => void }) {
     <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4">
       {rows.map((row, i) => {
         const end = i === 0 ? now : rows[i - 1].start
-        const steps = i === 0 ? AGO : [30, 60, 120]
+        const steps = i === 0 ? AGO_LONG : [30, 60, 120]
         return (
           <div
             key={i}
-            className="flex flex-col gap-2 rounded-xl bg-surface p-3"
+            className="flex flex-col gap-2 rounded-2xl bg-sunken/70 p-3"
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs text-ink-2">
@@ -96,7 +98,7 @@ export function AdjustPast({ onClose }: { onClose: () => void }) {
                   role="radio"
                   aria-checked={row.activity === a}
                   onClick={() => set(i, { activity: a })}
-                  className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm ring-1 ${
+                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold ring-1 ${
                     row.activity === a
                       ? 'text-white ring-transparent'
                       : 'bg-card ring-line'
@@ -120,7 +122,7 @@ export function AdjustPast({ onClose }: { onClose: () => void }) {
                     if (/^\d{1,2}:\d{2}$/.test(e.target.value))
                       set(i, { start: atClock(now, e.target.value) })
                   }}
-                  className="rounded-lg bg-card px-2 py-1 ring-1 ring-line"
+                  className="rounded-full bg-card px-3 py-1 ring-1 ring-line"
                 />
               </label>
               {steps

@@ -1,6 +1,7 @@
 import {
   Link,
   Outlet,
+  useRouterState,
   createRootRoute,
   createRoute,
   createRouter,
@@ -13,7 +14,9 @@ import {
   RefreshCw,
   Settings as Cog,
 } from 'lucide-react'
+import { motion } from 'motion/react'
 import { AppProvider, useApp } from './app.tsx'
+import { ActivityIcon, SPRING, color, tone } from './components/ui.tsx'
 import { NowPage } from './routes/now.tsx'
 import { TodayPage } from './routes/today.tsx'
 import { StatsPage } from './routes/stats.tsx'
@@ -45,34 +48,65 @@ function SyncBadge() {
   )
 }
 
+function Logo() {
+  const { engine } = useApp()
+  const activity = engine.plan.current?.activity ?? 'sit'
+  return (
+    <span className="flex items-center gap-2">
+      <motion.span
+        key={activity}
+        className="tint-strong grid size-8 place-items-center rounded-xl text-white shadow-soft"
+        style={tone(color(activity))}
+        initial={{ rotate: -20, scale: 0.6 }}
+        animate={{ rotate: 0, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 14 }}
+      >
+        <ActivityIcon activity={activity} size={17} strokeWidth={2.4} />
+      </motion.span>
+      <span className="display text-2xl font-bold tracking-tight">stretch</span>
+    </span>
+  )
+}
+
 function Layout() {
   const { store } = useApp()
+  const path = useRouterState({ select: (s) => s.location.pathname })
   return (
-    <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-4 pb-10">
-      <header className="flex items-center justify-between gap-3 py-4">
-        <span className="text-lg font-semibold tracking-tight">Stretch</span>
+    <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-4 pb-12">
+      <header className="flex items-center justify-between gap-3 pt-5 pb-4">
+        <Logo />
         <SyncBadge />
       </header>
-      <nav className="mb-5 grid grid-cols-4 gap-1 rounded-xl bg-card p-1 ring-1 ring-line">
-        {NAV.map(({ to, label, icon: Icon }) => (
-          <Link
-            key={to}
-            to={to}
-            className="flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm text-ink-2 hover:text-ink"
-            activeProps={{
-              className: 'bg-surface !text-ink font-medium shadow-sm',
-            }}
-            activeOptions={{ exact: true }}
-          >
-            <Icon size={16} aria-hidden />
-            {label}
-          </Link>
-        ))}
+      <nav className="mb-6 grid grid-cols-4 gap-1 rounded-full bg-card p-1.5 shadow-soft">
+        {NAV.map(({ to, label, icon: Icon }) => {
+          const active = path === to
+          return (
+            <Link
+              key={to}
+              to={to}
+              className={`relative flex items-center justify-center gap-1.5 rounded-full py-2 text-sm font-semibold transition-colors ${
+                active ? 'text-card' : 'text-ink-2 hover:text-ink'
+              }`}
+            >
+              {active && (
+                <motion.span
+                  layoutId="nav-pill"
+                  className="absolute inset-0 rounded-full bg-ink"
+                  transition={SPRING}
+                />
+              )}
+              <span className="relative flex items-center gap-1.5 [&>svg]:shrink-0">
+                <Icon size={16} aria-hidden />
+                <span className="hidden min-[380px]:inline">{label}</span>
+              </span>
+            </Link>
+          )
+        })}
       </nav>
       {store.error && (
         <div
           role="alert"
-          className="mb-4 flex items-start justify-between gap-3 rounded-xl bg-card p-3 text-sm ring-1 ring-alarm"
+          className="mb-4 flex items-start justify-between gap-3 rounded-2xl bg-card p-3 text-sm shadow-soft ring-2 ring-alarm"
         >
           <span>{store.error}</span>
           <button className="text-ink-2 underline" onClick={store.clearError}>
@@ -81,7 +115,14 @@ function Layout() {
         </div>
       )}
       <main className="flex-1">
-        <Outlet />
+        <motion.div
+          key={path}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+        >
+          <Outlet />
+        </motion.div>
       </main>
     </div>
   )

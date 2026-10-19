@@ -20,18 +20,18 @@ function Field({
   children: ReactNode
 }) {
   return (
-    <label className="flex items-center justify-between gap-4 py-2">
+    <label className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2">
       <span>
-        <span className="block text-sm">{label}</span>
+        <span className="block text-sm font-medium">{label}</span>
         {hint && <span className="block text-xs text-ink-3">{hint}</span>}
       </span>
-      {children}
+      <span className="ml-auto flex items-center">{children}</span>
     </label>
   )
 }
 
 const input =
-  'w-24 rounded-lg bg-surface px-2 py-1.5 text-right text-sm tabular-nums ring-1 ring-line'
+  'w-24 rounded-full bg-sunken px-3 py-1.5 text-right text-sm font-semibold tabular-nums outline-none focus:ring-2 focus:ring-ink'
 
 function Minutes({
   value,
@@ -77,7 +77,7 @@ function SharedSettings() {
 
   return (
     <Card>
-      <h2 className="text-sm font-medium">Schedule</h2>
+      <h2 className="text-xl font-bold">Schedule</h2>
       <p className="mb-2 text-xs text-ink-3">Shared by all your devices.</p>
       <div className="divide-y divide-line">
         <Field
@@ -87,14 +87,14 @@ function SharedSettings() {
           <span className="flex items-center gap-1.5">
             <input
               type="time"
-              className={input}
+              className={`${input} !w-32`}
               value={draft.workdayStart}
               onChange={(e) => set({ workdayStart: e.target.value })}
             />
             –
             <input
               type="time"
-              className={input}
+              className={`${input} !w-32`}
               value={draft.workdayEnd}
               onChange={(e) => set({ workdayEnd: e.target.value })}
             />
@@ -210,7 +210,7 @@ function DeviceSettings() {
   )
   return (
     <Card>
-      <h2 className="text-sm font-medium">This device</h2>
+      <h2 className="text-xl font-bold">This device</h2>
       <p className="mb-2 text-xs text-ink-3">Saved in this browser only.</p>
       <div className="divide-y divide-line">
         <Toggle
@@ -320,7 +320,7 @@ export function SettingsPage() {
       <SharedSettings />
       <DeviceSettings />
       <Card>
-        <h2 className="text-sm font-medium">Shortcuts</h2>
+        <h2 className="text-xl font-bold">Shortcuts</h2>
         <p className="mt-1 text-sm text-ink-2">
           <kbd>1</kbd>–<kbd>5</kbd> (or <kbd>S</kbd> <kbd>T</kbd> <kbd>W</kbd>{' '}
           <kbd>E</kbd> <kbd>B</kbd>) switch to sit, stand, walk, eat or break.{' '}

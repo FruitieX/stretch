@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, type ReactNode } from 'react'
+import { MotionConfig } from 'motion/react'
 import { useStore, type Store } from './lib/store.ts'
 import { useDevice } from './lib/device.ts'
 import { useEngine, type Engine } from './lib/engine.ts'
@@ -68,9 +69,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [engine])
 
+  // The ambient glow follows what you're doing.
+  const mood = engine.plan.current?.activity ?? 'sit'
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      '--mood',
+      `var(--${mood === 'off' ? 'away' : mood})`,
+    )
+  }, [mood])
+
   return (
     <Ctx.Provider value={{ store, engine, device, setDevice }}>
-      {children}
+      <MotionConfig reducedMotion="user">{children}</MotionConfig>
     </Ctx.Provider>
   )
 }

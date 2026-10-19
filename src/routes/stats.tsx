@@ -60,9 +60,9 @@ function Tile({
   hint?: string
 }) {
   return (
-    <div className="rounded-xl bg-card p-3 ring-1 ring-line">
+    <div className="rounded-2xl bg-card p-4 shadow-soft">
       <p className="text-xs text-ink-2">{label}</p>
-      <p className="mt-0.5 text-xl font-semibold tabular-nums">{value}</p>
+      <p className="display mt-0.5 text-3xl font-bold tabular-nums">{value}</p>
       {hint && <p className="text-xs text-ink-3">{hint}</p>}
     </div>
   )
@@ -112,7 +112,7 @@ export function StatsPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
         <div
-          className="flex rounded-xl bg-card p-1 ring-1 ring-line"
+          className="flex rounded-full bg-card p-1 shadow-soft"
           role="radiogroup"
           aria-label="Range"
         >
@@ -122,7 +122,7 @@ export function StatsPage() {
               role="radio"
               aria-checked={days === r}
               onClick={() => setDays(r)}
-              className={`rounded-lg px-3 py-1.5 text-sm ${days === r ? 'bg-surface font-medium shadow-sm' : 'text-ink-2'}`}
+              className={`rounded-full px-3 py-1.5 text-sm font-semibold ${days === r ? 'bg-ink text-card' : 'text-ink-2'}`}
             >
               {r} days
             </button>
@@ -131,7 +131,7 @@ export function StatsPage() {
         <span className="flex-1" />
         <a
           href="/api/export.csv"
-          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-ink-2 hover:bg-card hover:text-ink"
+          className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-ink-2 hover:bg-card hover:text-ink"
         >
           <Download size={16} /> CSV
         </a>
@@ -163,7 +163,7 @@ export function StatsPage() {
 
       <Card>
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-sm font-medium">Time per day</h2>
+          <h2 className="text-xl font-bold">Time per day</h2>
           <button
             className="text-xs text-ink-2 underline"
             onClick={() => setTable((t) => !t)}

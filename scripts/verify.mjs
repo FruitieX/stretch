@@ -114,12 +114,16 @@ try {
     executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
     args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'],
   })
-  const context = (options = {}) =>
-    browser.newContext({
+  const context = async (options = {}) => {
+    const ctx = await browser.newContext({
       timezoneId: TZ,
       viewport: { width: 1100, height: 900 },
       ...options,
     })
+    // Fake clocks freeze animation frames; skip animations in tests.
+    await ctx.addInitScript(() => localStorage.setItem('stretch.noMotion', '1'))
+    return ctx
+  }
 
   // --- A day on a fake clock -------------------------------------------------
   const desk = await context()
@@ -228,7 +232,12 @@ try {
       ['sit'],
     )
   })
+  // Quick "started earlier" chips are for brief slips; Adjust backfills more.
+  await past.getByRole('button', { name: '10m ago' }).click()
+  await past.getByText('Sitting since 09:20').waitFor()
+  await past.getByRole('button', { name: 'Adjust' }).click()
   await past.getByRole('button', { name: '1h ago' }).click()
+  await past.getByRole('button', { name: 'Save' }).click()
   await past.getByText('Sitting since 08:30').waitFor()
   await past.getByRole('button', { name: 'Adjust' }).click()
   await past.getByRole('button', { name: /Before that/ }).click()
@@ -416,6 +425,19 @@ try {
   })
   const width = await phone.evaluate(() => document.documentElement.scrollWidth)
   assert.ok(width <= 390, `no horizontal scroll on phones (got ${width}px)`)
+  for (const [name, heading] of [
+    ['Stats', 'Time per day'],
+    ['Settings', 'Schedule'],
+  ]) {
+    await phone.getByRole('link', { name }).click()
+    await phone.getByRole('heading', { name: heading }).waitFor()
+    await phone.screenshot({
+      path: `test-results/${name.toLowerCase()}-phone-dark.png`,
+      fullPage: true,
+    })
+    const w = await phone.evaluate(() => document.documentElement.scrollWidth)
+    assert.ok(w <= 390, `no horizontal scroll on ${name} (got ${w}px)`)
+  }
 
   console.log('UI verification passed')
 } catch (e) {

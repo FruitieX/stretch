@@ -9,7 +9,7 @@
       frontend = pkgs.buildNpmPackage {
         pname = "stretch-ui"; version = "0.1.0"; nodejs = pkgs.nodejs_22;
         src = pkgs.lib.cleanSourceWith {src = ./.; filter = path: type: !(builtins.elem (baseNameOf path) ["node_modules" "target" "dist" ".git" "data" "test-results" "result" "backend" "docs" ".github" "flake.nix" "flake.lock"]);};
-        npmDepsHash = "sha256-0jN26GkfmAOJdDvTvQevi2OPapNDgcHabIAyP1r9YLo=";
+        npmDepsHash = "sha256-fLihYh3tW2Qg93rG39ReywfmTwNPLm7NpxoPyINIyeg=";
         installPhase = ''mkdir -p $out/share/stretch; cp -r dist/. $out/share/stretch/'';
       };
       backend = pkgs.rustPlatform.buildRustPackage {

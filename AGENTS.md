@@ -18,3 +18,10 @@ tests; timeline edits go through `paint`/`editSpan` in `src/lib/edit.ts`.
 SSE `changed` events must carry non-empty data (browsers drop empty ones),
 and the homelab route needs `timeouts.request: 0s` for `/api/live`. The app
 has no auth and must only be routed through the private gateway.
+
+Visual style: warm paper surfaces, soft shadows, Bricolage Grotesque for
+display text and Figtree for body, activity-tinted tiles and an ambient glow
+following the current activity (`--mood`). Animations use `motion` and must
+respect reduced motion (`MotionConfig reducedMotion="user"`). Browser tests
+set `localStorage['stretch.noMotion']`, because Playwright's fake clock
+freezes animation frames.

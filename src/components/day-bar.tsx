@@ -296,7 +296,7 @@ export function DayBar() {
         data-end={to}
         role="group"
         aria-label="Today's timeline. Click a block to edit it, drag it to move it, drag its edges to resize it, or drag across empty time to fill it in."
-        className="group/track relative h-9 cursor-crosshair touch-pan-y select-none rounded-md bg-surface"
+        className="group/track relative h-10 cursor-crosshair touch-pan-y select-none rounded-xl bg-sunken"
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
@@ -320,7 +320,7 @@ export function DayBar() {
                 setSelection({ kind: 'span', span: m.span })
               }
             }}
-            className={`absolute inset-y-0 rounded-[4px] border-x border-[var(--card)] ${
+            className={`absolute inset-y-0 rounded-[7px] border-x-2 border-[var(--sunken)] ${
               m.planned
                 ? 'pointer-events-none'
                 : slide?.moved
@@ -482,7 +482,7 @@ function BlockEditor({
     : []
 
   return (
-    <div className="mt-2 flex flex-col gap-3 rounded-xl bg-surface p-3">
+    <div className="mt-2 flex flex-col gap-3 rounded-2xl bg-sunken/70 p-3">
       <div
         className="flex flex-wrap gap-1.5"
         role="radiogroup"
@@ -495,7 +495,7 @@ function BlockEditor({
             role="radio"
             aria-checked={activity === a}
             onClick={() => setActivity(a)}
-            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm ring-1 ${
+            className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold ring-1 ${
               activity === a
                 ? 'text-white ring-transparent'
                 : 'bg-card ring-line'
@@ -515,7 +515,7 @@ function BlockEditor({
             /^\d{1,2}:\d{2}$/.test(e.target.value) &&
             setStart(atClock(now, e.target.value))
           }
-          className="rounded-lg bg-card px-2 py-1 ring-1 ring-line"
+          className="rounded-full bg-card px-3 py-1 ring-1 ring-line"
         />
         –
         {untilNow ? (
@@ -529,7 +529,7 @@ function BlockEditor({
               /^\d{1,2}:\d{2}$/.test(e.target.value) &&
               setEnd(atClock(now, e.target.value))
             }
-            className="rounded-lg bg-card px-2 py-1 ring-1 ring-line"
+            className="rounded-full bg-card px-3 py-1 ring-1 ring-line"
           />
         )}
         {!span?.open && (

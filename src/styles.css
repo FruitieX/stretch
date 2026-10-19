@@ -1,66 +1,149 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/bricolage-grotesque/index.css';
+@import '@fontsource-variable/figtree/index.css';
 
-/* Activity colors: the validated categorical palette, in stacking order. */
+/*
+ * Warm paper surfaces, soft shadows instead of hairlines, and an ambient glow
+ * tinted by the current activity (--mood, set by the app). Activity colours
+ * are the validated categorical palette, in stacking order.
+ */
 :root {
   color-scheme: light;
-  --surface: #f6f6f4;
-  --card: #fcfcfb;
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --ink-3: #85847f;
-  --line: #e4e3df;
+  --surface: #f3efe6;
+  --card: #fffcf6;
+  --sunken: #ebe5d8;
+  --ink: #1f1c16;
+  --ink-2: #5a5448;
+  --ink-3: #8d8676;
+  --line: #e2dbcc;
   --sit: #2a78d6;
   --stand: #eb6834;
   --walk: #1baf7a;
   --eat: #eda100;
   --break: #e87ba4;
-  --away: #b9b8b2;
+  --away: #b3ac9d;
   --alarm: #c8312f;
+  --mood: var(--sit);
+  --shadow:
+    0 1px 1px rgb(70 50 20 / 0.04), 0 2px 4px rgb(70 50 20 / 0.04),
+    0 12px 28px -14px rgb(70 50 20 / 0.22);
+  --shadow-lift:
+    0 2px 4px rgb(70 50 20 / 0.06), 0 18px 36px -16px rgb(70 50 20 / 0.32);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --surface: #121211;
-    --card: #1a1a19;
-    --ink: #f0efec;
-    --ink-2: #c3c2b7;
-    --ink-3: #8d8c85;
-    --line: #2c2c2a;
+    --surface: #15130f;
+    --card: #211e18;
+    --sunken: #2a261f;
+    --ink: #f3eee4;
+    --ink-2: #c8bfae;
+    --ink-3: #8f8777;
+    --line: #353028;
     --sit: #3987e5;
     --stand: #d95926;
     --walk: #199e70;
     --eat: #c98500;
     --break: #d55181;
-    --away: #5d5c58;
+    --away: #5f594e;
     --alarm: #e66767;
+    --shadow: 0 1px 1px rgb(0 0 0 / 0.3), 0 12px 28px -14px rgb(0 0 0 / 0.7);
+    --shadow-lift:
+      0 2px 4px rgb(0 0 0 / 0.35), 0 18px 36px -16px rgb(0 0 0 / 0.8);
   }
 }
 
 @theme inline {
   --color-surface: var(--surface);
   --color-card: var(--card);
+  --color-sunken: var(--sunken);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-line: var(--line);
   --color-alarm: var(--alarm);
+  --font-display:
+    'Bricolage Grotesque Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans:
+    'Figtree Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+  --shadow-soft: var(--shadow);
+  --shadow-lift: var(--shadow-lift);
 }
 
 html,
 body {
   background: var(--surface);
   color: var(--ink);
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
+/* Ambient glow that follows the current activity. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -20vmax -20vmax auto auto;
+  width: 70vmax;
+  height: 70vmax;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, var(--mood) 26%, transparent),
+    transparent
+  );
+  filter: blur(20px);
+  pointer-events: none;
+  z-index: -1;
+  transition: background 1.2s ease;
+  animation: drift 24s ease-in-out infinite alternate;
+}
+body::after {
+  content: '';
+  position: fixed;
+  inset: auto auto -25vmax -25vmax;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, var(--mood) 14%, transparent),
+    transparent
+  );
+  pointer-events: none;
+  z-index: -1;
+  transition: background 1.2s ease;
+}
+@keyframes drift {
+  to {
+    transform: translate(-6vmax, 5vmax) scale(1.08);
+  }
+}
+
+h1,
+h2,
+.display {
+  font-family: var(--font-display);
+  font-variation-settings: 'wdth' 92;
+  letter-spacing: -0.01em;
+}
+
+/* A tinted surface for an activity colour: `background: var(--tint)` with --c set. */
+.tint {
+  background: color-mix(in oklab, var(--c) 13%, var(--card));
+}
+.tint-strong {
+  background: linear-gradient(
+    150deg,
+    color-mix(in oklab, var(--c) 82%, white),
+    var(--c) 55%,
+    color-mix(in oklab, var(--c) 88%, black)
+  );
+}
+
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  body::before {
     transition: none !important;
     animation: none !important;
   }
