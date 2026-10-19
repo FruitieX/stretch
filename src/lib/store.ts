@@ -76,7 +76,8 @@ async function send(op: Op): Promise<void> {
     headers: remove ? {} : { 'Content-Type': 'application/json' },
     body: remove ? undefined : JSON.stringify(op.body),
   })
-  if (res.ok) return
+  // Already deleted (here or on another device): nothing left to save.
+  if (res.ok || (res.status === 404 && op.kind === 'event')) return
   const message = await res
     .json()
     .then((d) => d.message as string)
@@ -106,7 +107,11 @@ export function useStore() {
   const outboxRef = useRef(outbox)
   outboxRef.current = outbox
 
+  const refreshes = useRef(0)
   const refresh = useCallback(async () => {
+    // Only the latest refresh may apply: an older response arriving last
+    // would roll the screen back to a stale snapshot.
+    const seq = ++refreshes.current
     try {
       // From the start of yesterday: today's timeline plus overnight context.
       const from = encodeURIComponent(
@@ -115,6 +120,7 @@ export function useStore() {
       const res = await fetch(`/api/state?from=${from}`)
       if (!res.ok) throw new Error(res.statusText)
       const data = (await res.json()) as Snapshot
+      if (seq !== refreshes.current) return
       setServer(data)
       persist(SNAPSHOT_KEY, data)
       setOnline(true)
@@ -129,9 +135,12 @@ export function useStore() {
     try {
       // Changes queued while this flush was refreshing would otherwise wait
       // for the retry timer, so keep going until the outbox is empty.
+      // Sent changes stay in the outbox (still shown on top of the server
+      // snapshot) until a refresh that includes them lands; resending one
+      // after a failure is safe because saves are idempotent.
       do {
-        while (outboxRef.current.length) {
-          const op = outboxRef.current[0]
+        const batch = [...outboxRef.current]
+        for (const op of batch) {
           try {
             await send(op)
           } catch (e) {
@@ -141,13 +150,13 @@ export function useStore() {
             }
             setError(e.message)
           }
-          const rest = outboxRef.current.filter((o) => o !== op)
-          outboxRef.current = rest
-          setOutbox(rest)
-          persist(OUTBOX_KEY, rest)
         }
         setOnline(true)
         await refresh()
+        const rest = outboxRef.current.filter((o) => !batch.includes(o))
+        outboxRef.current = rest
+        setOutbox(rest)
+        persist(OUTBOX_KEY, rest)
       } while (outboxRef.current.length)
     } finally {
       flushing.current = false

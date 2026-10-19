@@ -228,58 +228,75 @@ try {
 
   // Timeline: click a block to edit it, drag across the bar to fill in time.
   const bar = past.getByRole('group', { name: /Today's timeline/ })
-  const box = await bar.boundingBox()
-  const [barStart, barEnd] = await bar.evaluate((el) => [
-    Number(el.dataset.start),
-    Number(el.dataset.end),
-  ])
   const fakeNow = todayAt('09:30').getTime() + 86400000
+  // The bar rescales as blocks move, so measure it before each gesture.
+  let box, barStart, barEnd, y
+  const measure = async () => {
+    box = await bar.boundingBox()
+    ;[barStart, barEnd] = await bar.evaluate((el) => [
+      Number(el.dataset.start),
+      Number(el.dataset.end),
+    ])
+    y = box.y + box.height / 2
+  }
   const x = (minutesAgo) =>
     box.x +
     ((fakeNow - minutesAgo * 60000 - barStart) / (barEnd - barStart)) *
       box.width
-  const y = box.y + box.height / 2
+  await measure()
   await past.mouse.click(x(90), y)
   await past.getByRole('radio', { name: 'Walk' }).click()
   await past.getByRole('button', { name: 'Save' }).click()
   await past
     .getByRole('button', { name: /^07:30\s*Walking.*1 h 00 min/ })
     .waitFor()
-  await past.mouse.move(x(45), y)
-  await past.mouse.down()
-  await past.mouse.move(x(30), y, { steps: 6 })
-  await past.mouse.up()
+  const dragFrom = async (start, minutesAgo) => {
+    await measure()
+    start = typeof start === 'function' ? await start() : x(start)
+    await past.mouse.move(start, y)
+    await past.mouse.down()
+    await past.mouse.move(x(minutesAgo), y, { steps: 8 })
+    await past.mouse.up()
+  }
+  const row = (pattern) => past.getByRole('button', { name: pattern }).waitFor()
+
+  // Dragging a block slides it, keeping its length.
+  await dragFrom(90, 75)
+  await row(/^07:45\s*Walking.*1 h 00 min/)
+  await row(/^08:45\s*Sitting/)
+
+  // Dragging an edge resizes; the neighbour grows to fit.
+  const edge = async (clock) =>
+    await past
+      .getByRole('separator', { name: new RegExp(`Switch at ${clock}`) })
+      .boundingBox()
+  await dragFrom(async () => {
+    const e1 = await edge('08:45')
+    return e1.x + e1.width / 2
+  }, 60)
+  await row(/^07:45\s*Walking.*45 min/)
+  await row(/^08:30\s*Sitting/)
+
+  // Sliding stops before swallowing the current activity (at least 5 min).
+  await dragFrom(80, -90)
+  await row(/^08:40\s*Walking.*45 min/)
+  await row(/^09:25\s*Sitting/)
+
+  // Dragging across empty time fills it in.
+  await dragFrom(85, 65)
   await past.getByRole('radio', { name: 'Eat' }).click()
   await past.screenshot({
     path: 'test-results/timeline-edit.png',
     fullPage: true,
   })
   await past.getByRole('button', { name: 'Save' }).click()
-  await past.getByRole('button', { name: /^08:45\s*Eating.*15 min/ }).waitFor()
-  await past.getByRole('button', { name: /^09:00\s*Sitting/ }).waitFor()
-
-  // Resizing: drag a block edge; it stops five minutes short of the next one.
-  const dragEdge = async (clock, minutesAgo) => {
-    const edge = await past
-      .getByRole('separator', { name: new RegExp(`Switch at ${clock}`) })
-      .boundingBox()
-    await past.mouse.move(edge.x + edge.width / 2, y)
-    await past.mouse.down()
-    await past.mouse.move(x(minutesAgo), y, { steps: 8 })
-    await past.mouse.up()
-  }
-  await dragEdge('08:30', 75)
-  await past.getByRole('button', { name: /^07:30\s*Walking.*45 min/ }).waitFor()
-  await past.getByRole('button', { name: /^08:15\s*Sitting/ }).waitFor()
-  await dragEdge('08:45', 15)
-  await past.getByRole('button', { name: /^08:55\s*Eating.*5 min/ }).waitFor()
+  await row(/^08:05\s*Eating.*20 min/)
 
   // Overlaps are impossible; an edit that covers other blocks says so first.
-  await past.mouse.click(x(100), y)
-  await past.getByLabel('To', { exact: true }).fill('09:10')
-  await past
-    .getByText(/Replaces sitting 08:15–08:55, eating 08:55–09:00\.$/)
-    .waitFor()
+  await measure()
+  await past.mouse.click(x(75), y)
+  await past.getByLabel('To', { exact: true }).fill('09:27')
+  await past.getByText(/Replaces walking 08:40–09:25\.$/).waitFor()
   await past.screenshot({
     path: 'test-results/timeline-overlap.png',
     fullPage: true,
@@ -320,14 +337,17 @@ try {
       await p
         .screenshot({ path: `test-results/failure-${i++}.png`, fullPage: true })
         .catch(() => {})
-  for (const c of browser?.contexts() ?? [])
-    for (const p of c.pages())
-      console.error(
-        'outbox:',
-        await p
-          .evaluate(() => localStorage.getItem('stretch.outbox'))
-          .catch(() => '?'),
-      )
+  for (const c of browser?.contexts() ?? []) {
+    for (const p of c.pages()) {
+      const text = await p
+        .evaluate(() => document.body.innerText.slice(0, 700))
+        .catch(() => '?')
+      const outbox = await p
+        .evaluate(() => localStorage.getItem('stretch.outbox'))
+        .catch(() => '?')
+      console.error('text:', text, '\noutbox:', outbox)
+    }
+  }
   throw e
 } finally {
   await browser?.close()

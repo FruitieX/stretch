@@ -173,7 +173,9 @@ export function TodayPage() {
                     <ActivityIcon activity={e.activity} size={15} />
                   </span>
                   <span className="flex-1 text-sm">
-                    {DOING[e.activity]}
+                    {e.activity === 'off'
+                      ? 'Stopped tracking'
+                      : DOING[e.activity]}
                     {SOURCE[e.source] && (
                       <span className="ml-2 text-xs text-ink-3">
                         {SOURCE[e.source]}

@@ -10,6 +10,8 @@ import {
   moveEdge,
   paint,
   replaced,
+  slideBlock,
+  slideLimits,
   toMarks,
   type Mark as Change,
 } from '../lib/edit.ts'
@@ -64,14 +66,35 @@ export function DayBar() {
     moved: boolean
   } | null>(null)
   const [resize, setResize] = useState<Resize | null>(null)
+  const [slide, setSlide] = useState<{
+    id: string
+    span: Span
+    x: number
+    delta: number
+    min: number
+    max: number
+    moved: boolean
+  } | null>(null)
 
-  // While resizing, show the timeline as it will be after letting go.
-  const today = resize
+  // While resizing or sliding, show the timeline as it will be after
+  // letting go.
+  const moving = resize !== null || (slide?.moved ?? false)
+  const preview = (marks: Change[]) =>
+    resize
+      ? moveEdge(marks, resize.id, resize.at, now, dayStart)
+      : slide?.moved
+        ? slideBlock(marks, slide.id, slide.delta, now, dayStart)
+        : marks
+  const today = moving
     ? spans(
         sortEvents(
-          store.events.map((e) =>
-            e.id === resize.id ? { ...e, at: isoLocal(resize.at) } : e,
-          ),
+          preview(toMarks(store.events)).map((m) => ({
+            id: m.id ?? '',
+            at: isoLocal(m.at),
+            activity: m.activity,
+            source: m.source,
+            updatedAt: '',
+          })),
         ),
         dayStart,
         addDays(dayStart, 1),
@@ -98,7 +121,7 @@ export function DayBar() {
       planned: false,
       span: s,
     })),
-    ...(resize ? [] : engine.plan.preview)
+    ...(moving ? [] : engine.plan.preview)
       .filter((b) => b.end > now)
       .map((b) => ({
         activity: b.activity,
@@ -130,19 +153,60 @@ export function DayBar() {
   const timeAt = (clientX: number) =>
     Math.min(now, Math.max(from, Math.round(rawTimeAt(clientX) / SNAP) * SNAP))
 
-  // Dragging across the bar fills in a range; a click edits or adds a block.
+  // Dragging a block slides it; dragging across empty time fills in a
+  // range; a click edits or adds a block.
   const onDown = (e: PointerEvent) => {
     if (e.button !== 0) return
-    const t = timeAt(e.clientX)
     track.current!.setPointerCapture(e.pointerId)
+    const raw = rawTimeAt(e.clientX)
+    const hit = today.find((s) => s.start <= raw && raw < s.end)
+    const event = hit && store.events.find((x) => x.id === hit.eventId)
+    const limits =
+      event && time(event) === hit.start
+        ? slideLimits(toMarks(store.events), hit.eventId, now, dayStart)
+        : null
+    if (hit && limits) {
+      setSlide({
+        id: hit.eventId,
+        span: hit,
+        x: e.clientX,
+        delta: 0,
+        moved: false,
+        ...limits,
+      })
+      return
+    }
+    const t = timeAt(e.clientX)
     setDrag({ x: e.clientX, from: t, to: t, moved: false })
   }
   const onMove = (e: PointerEvent) => {
+    if (slide) {
+      const moved = slide.moved || Math.abs(e.clientX - slide.x) > 4
+      const raw = rawTimeAt(e.clientX) - rawTimeAt(slide.x)
+      const delta = Math.round(raw / SNAP) * SNAP
+      setSlide({
+        ...slide,
+        moved,
+        delta: Math.min(slide.max, Math.max(slide.min, delta)),
+      })
+      return
+    }
     if (!drag) return
     const moved = drag.moved || Math.abs(e.clientX - drag.x) > 4
     setDrag({ ...drag, to: timeAt(e.clientX), moved })
   }
   const onUp = (e: PointerEvent) => {
+    if (slide) {
+      const { id, delta, moved, span } = slide
+      setSlide(null)
+      if (!moved) return setSelection({ kind: 'span', span })
+      if (delta !== 0) {
+        engine.editTimeline((marks, t) =>
+          slideBlock(marks, id, delta, t, dayStart),
+        )
+      }
+      return
+    }
     if (!drag) return
     setDrag(null)
     if (drag.moved) {
@@ -200,7 +264,7 @@ export function DayBar() {
     )
   }
 
-  const range = resize
+  const range = moving
     ? null
     : drag?.moved
       ? { a: Math.min(drag.from, drag.to), b: Math.max(drag.from, drag.to) }
@@ -222,7 +286,10 @@ export function DayBar() {
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
-        onPointerCancel={() => setDrag(null)}
+        onPointerCancel={() => {
+          setDrag(null)
+          setSlide(null)
+        }}
         onMouseLeave={() => setHover(null)}
       >
         {marks.map((m, i) => (
@@ -242,7 +309,9 @@ export function DayBar() {
             className={`absolute inset-y-0 rounded-[4px] border-x border-[var(--card)] ${
               m.planned
                 ? 'pointer-events-none'
-                : 'cursor-pointer hover:brightness-110'
+                : slide?.moved
+                  ? 'cursor-grabbing'
+                  : 'cursor-grab hover:brightness-110'
             }`}
             style={{
               left: `${pos(m.start)}%`,
@@ -332,11 +401,13 @@ export function DayBar() {
         <p className="mt-1 min-h-5 text-xs text-ink-2">
           {resize
             ? `Switch at ${clock(resize.at)}`
-            : drag?.moved
-              ? `${clock(Math.min(drag.from, drag.to))}–${clock(Math.max(drag.from, drag.to))}`
-              : hover
-                ? label(hover)
-                : 'Click a block to edit it, drag its edges to resize, or drag across the bar to fill in time.'}
+            : slide?.moved
+              ? `${DOING[slide.span.activity]} ${clock(slide.span.start + slide.delta)}–${clock(slide.span.open ? now : slide.span.end + slide.delta)}`
+              : drag?.moved
+                ? `${clock(Math.min(drag.from, drag.to))}–${clock(Math.max(drag.from, drag.to))}`
+                : hover
+                  ? label(hover)
+                  : 'Click a block to edit it, drag it to move it, drag its edges to resize, or drag across empty time to fill it in.'}
         </p>
       )}
     </div>

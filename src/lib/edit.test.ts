@@ -7,6 +7,7 @@ import {
   moveEdge,
   paint,
   replaced,
+  slideBlock,
   type Mark,
 } from './edit.ts'
 
@@ -39,6 +40,21 @@ describe('paint', () => {
       '09:00 off',
       '10:00 sit',
     ])
+  })
+
+  it("doesn't carry yesterday's last activity into this morning", () => {
+    const marks = [
+      {
+        id: 'y',
+        at: at('15:00') - 86_400_000,
+        activity: 'sit' as const,
+        source: 'manual' as const,
+      },
+      m('a', '10:00', 'walk'),
+    ]
+    expect(
+      view(paint(marks, at('08:00'), at('09:00'), 'stand', now)).slice(1),
+    ).toEqual(['08:00 stand', '09:00 off', '10:00 walk'])
   })
 
   it('cuts into the middle of an activity and resumes it', () => {
@@ -177,5 +193,64 @@ describe('moveEdge', () => {
     const trimmed = paint(current, at('09:00'), at('10:10'), 'walk', now)
     expect(view(trimmed)).toEqual(['09:00 walk', '10:10 sit'])
     expect(replaced(current, trimmed, now)).toEqual([])
+  })
+})
+
+describe('slideBlock', () => {
+  const marks = [
+    m('a', '09:00', 'stand'),
+    m('b', '09:30', 'eat'),
+    m('c', '09:45', 'sit'),
+    m('d', '10:30', 'walk'),
+  ]
+  const floor = at('00:00')
+  const min = 60_000
+
+  it('slides a block, keeping its length; neighbours shrink and grow', () => {
+    expect(view(slideBlock(marks, 'b', 20 * min, now, floor))).toEqual([
+      '09:00 stand',
+      '09:50 eat',
+      '10:05 sit',
+      '10:30 walk',
+    ])
+  })
+
+  it('stops before swallowing a neighbour', () => {
+    expect(
+      view(slideBlock(marks, 'b', -90 * min, now, floor)).slice(0, 2),
+    ).toEqual(['09:00 stand', '09:05 eat'])
+    expect(
+      view(slideBlock(marks, 'b', 90 * min, now, floor)).slice(1, 3),
+    ).toEqual(['10:10 eat', '10:25 sit'])
+  })
+
+  it('keeps at least five minutes of the current activity', () => {
+    const two = [m('a', '09:00', 'walk'), m('b', '10:00', 'sit')]
+    expect(view(slideBlock(two, 'a', 120 * min, now, floor))).toEqual([
+      '09:55 walk',
+      '10:55 sit',
+    ])
+  })
+
+  it('slides the current activity by moving its start only', () => {
+    expect(
+      view(slideBlock(marks, 'd', -15 * min, now, floor)).slice(2),
+    ).toEqual(['09:45 sit', '10:15 walk'])
+    expect(view(slideBlock(marks, 'd', 90 * min, now, floor))[3]).toBe(
+      '10:55 walk',
+    )
+  })
+
+  it('leaves untracked time untracked', () => {
+    const gap = [
+      m('a', '09:00', 'sit'),
+      m('b', '09:30', 'off'),
+      m('c', '10:00', 'walk'),
+    ]
+    expect(view(slideBlock(gap, 'a', 10 * min, now, floor))).toEqual([
+      '09:10 sit',
+      '09:40 off',
+      '10:00 walk',
+    ])
   })
 })

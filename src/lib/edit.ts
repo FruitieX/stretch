@@ -1,5 +1,6 @@
 import type { Activity, ActivityEvent, Source } from './model.ts'
 import { time } from './timeline.ts'
+import { dayKey } from './time.ts'
 
 /** An activity change in milliseconds; `id` is missing for new ones. */
 export interface Mark {
@@ -17,11 +18,14 @@ export const toMarks = (sorted: ActivityEvent[]): Mark[] =>
     source: e.source,
   }))
 
-/** What was going on at `t` ("off" = untracked). */
+/**
+ * What was going on at `t` ("off" = untracked). Each day starts untracked:
+ * yesterday's last activity doesn't carry over into this morning.
+ */
 export function activityAt(marks: Mark[], t: number): Activity {
-  let a: Activity = 'off'
-  for (const m of marks) if (m.at <= t) a = m.activity
-  return a
+  let last: Mark | undefined
+  for (const m of marks) if (m.at <= t) last = m
+  return last && dayKey(last.at) === dayKey(t) ? last.activity : 'off'
 }
 
 /** What was going on just before `t`. */
@@ -177,4 +181,45 @@ export function replaced(before: Mark[], after: Mark[], now: number): Mark[] {
     }
     return activityAt(after, end - 1) !== m.activity
   })
+}
+
+/**
+ * How far the block starting at change `id` can slide (in ms, negative =
+ * earlier). Its end edge moves with it unless it is the current activity;
+ * neighbours shrink to at most `SNAP` and nothing moves past `now`.
+ */
+export function slideLimits(
+  marks: Mark[],
+  id: string,
+  now: number,
+  floor: number,
+): { min: number; max: number } | null {
+  const i = marks.findIndex((m) => m.id === id)
+  if (i < 0) return null
+  const block = marks[i]
+  const prev = marks[i - 1]
+  const end = marks[i + 1]
+  const after = marks[i + 2]
+  const min = Math.max(floor, prev ? prev.at + SNAP : floor) - block.at
+  const max = end
+    ? Math.min(after ? after.at : now, now) - SNAP - end.at
+    : now - SNAP - block.at
+  return { min: Math.min(0, min), max: Math.max(0, max) }
+}
+
+/** Slides a block by `delta` ms, clamped to `slideLimits`. */
+export function slideBlock(
+  marks: Mark[],
+  id: string,
+  delta: number,
+  now: number,
+  floor: number,
+): Mark[] {
+  const limits = slideLimits(marks, id, now, floor)
+  if (!limits) return marks
+  const d = Math.min(limits.max, Math.max(limits.min, delta))
+  const i = marks.findIndex((m) => m.id === id)
+  return marks.map((m, j) =>
+    j === i || j === i + 1 ? { ...m, at: m.at + d } : m,
+  )
 }

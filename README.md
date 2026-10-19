@@ -10,8 +10,10 @@ is always one tap, "Not now" backs off, and nothing blocks you.
   timeline with a faint possible rest of the day, and standing/walking targets.
   "In a call" mutes alerts; "I was away…" logs a break you forgot to record.
 - **Timeline** (on Now and Today): click a block to change its activity or
-  times, drag a block edge to resize it (it stops short of the next edge), or
-  drag across the bar to fill in a time range, e.g. "standing 08:00–09:00".
+  times, drag a block to slide it (keeping its length), drag a block edge to
+  resize it, or drag across empty time to fill it in, e.g. "standing
+  08:00–09:00". Sliding and resizing stop five minutes short of swallowing a
+  neighbour.
   Blocks never overlap; an edit that covers other blocks says what it
   replaces before saving. Right after switching, "Started earlier? 15m · 30m ·
   1h · 2h ago" backdates in one tap; **Adjust** rewrites the recent past as
