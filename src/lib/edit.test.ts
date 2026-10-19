@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { Activity } from './model.ts'
-import { deleteSpan, diff, editSpan, paint, type Mark } from './edit.ts'
+import {
+  deleteSpan,
+  diff,
+  editSpan,
+  moveEdge,
+  paint,
+  replaced,
+  type Mark,
+} from './edit.ts'
 
 const at = (clock: string) => Date.parse(`2026-10-19T${clock}:00+03:00`)
 const m = (id: string, clock: string, activity: Activity): Mark => ({
@@ -124,5 +132,50 @@ describe('editSpan', () => {
       '10:00 sit',
       '10:45 walk',
     ])
+  })
+})
+
+describe('moveEdge', () => {
+  const marks = [
+    m('a', '09:00', 'stand'),
+    m('b', '10:00', 'sit'),
+    m('c', '10:30', 'off'),
+  ]
+  const floor = at('00:00')
+
+  it('moves the edge between two blocks', () => {
+    expect(view(moveEdge(marks, 'b', at('09:40'), now, floor))).toEqual([
+      '09:00 stand',
+      '09:40 sit',
+      '10:30 off',
+    ])
+  })
+
+  it('stops five minutes short of the neighbouring edges', () => {
+    expect(view(moveEdge(marks, 'b', at('08:00'), now, floor))[1]).toBe(
+      '09:05 sit',
+    )
+    expect(view(moveEdge(marks, 'b', at('11:00'), now, floor))[1]).toBe(
+      '10:25 sit',
+    )
+  })
+
+  it('extends a block into untracked time and never into the future', () => {
+    expect(view(moveEdge(marks, 'c', at('12:00'), now, floor))[2]).toBe(
+      '11:00 off',
+    )
+    expect(view(moveEdge(marks, 'a', at('07:00'), now, floor))[0]).toBe(
+      '07:00 stand',
+    )
+  })
+
+  it('reports blocks a range edit would replace', () => {
+    const after = paint(marks, at('09:30'), at('10:40'), 'walk', now)
+    expect(replaced(marks, after, now).map((x) => x.id)).toEqual(['b'])
+    // Trimming the current activity isn't replacing it.
+    const current = [m('a', '09:00', 'walk'), m('b', '10:00', 'sit')]
+    const trimmed = paint(current, at('09:00'), at('10:10'), 'walk', now)
+    expect(view(trimmed)).toEqual(['09:00 walk', '10:10 sit'])
+    expect(replaced(current, trimmed, now)).toEqual([])
   })
 })

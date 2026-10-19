@@ -124,3 +124,57 @@ export function diff(before: Mark[], after: Mark[]): Ops {
     remove: [...old.keys()].filter((id) => !ids.has(id)),
   }
 }
+
+/** Timeline edits snap to five minutes, and no block gets shorter than that. */
+export const SNAP = 5 * 60_000
+
+/**
+ * How far the change `id` (a block edge) can move: never past the
+ * neighbouring changes, so resizing can't swallow a block, and never into
+ * the future. `floor` bounds the first change of the day.
+ */
+export function edgeLimits(
+  marks: Mark[],
+  id: string,
+  now: number,
+  floor: number,
+): { min: number; max: number } | null {
+  const i = marks.findIndex((m) => m.id === id)
+  if (i < 0) return null
+  const prev = marks[i - 1]
+  const next = marks[i + 1]
+  return {
+    min: Math.max(floor, prev ? prev.at + SNAP : floor),
+    max: next ? Math.min(next.at - SNAP, now) : now,
+  }
+}
+
+/** Moves a block edge (the change `id`), clamped to `edgeLimits`. */
+export function moveEdge(
+  marks: Mark[],
+  id: string,
+  to: number,
+  now: number,
+  floor: number,
+): Mark[] {
+  const limits = edgeLimits(marks, id, now, floor)
+  if (!limits || limits.min > limits.max) return marks
+  const at = Math.min(limits.max, Math.max(limits.min, to))
+  return marks.map((m) => (m.id === id ? { ...m, at } : m))
+}
+
+/**
+ * Recorded blocks a range edit would wipe out entirely, for a warning.
+ * Blocks that are only trimmed (some of them survives) are not listed.
+ */
+export function replaced(before: Mark[], after: Mark[], now: number): Mark[] {
+  const removed = new Set(diff(before, after).remove)
+  return before.filter((m, i) => {
+    if (!m.id || !removed.has(m.id) || m.activity === 'off') return false
+    const end = before[i + 1]?.at ?? now
+    for (let t = m.at; t < end; t += SNAP) {
+      if (activityAt(after, t) === m.activity) return false
+    }
+    return activityAt(after, end - 1) !== m.activity
+  })
+}

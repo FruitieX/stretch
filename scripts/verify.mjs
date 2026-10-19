@@ -257,6 +257,34 @@ try {
   await past.getByRole('button', { name: 'Save' }).click()
   await past.getByRole('button', { name: /^08:45\s*Eating.*15 min/ }).waitFor()
   await past.getByRole('button', { name: /^09:00\s*Sitting/ }).waitFor()
+
+  // Resizing: drag a block edge; it stops five minutes short of the next one.
+  const dragEdge = async (clock, minutesAgo) => {
+    const edge = await past
+      .getByRole('separator', { name: new RegExp(`Switch at ${clock}`) })
+      .boundingBox()
+    await past.mouse.move(edge.x + edge.width / 2, y)
+    await past.mouse.down()
+    await past.mouse.move(x(minutesAgo), y, { steps: 8 })
+    await past.mouse.up()
+  }
+  await dragEdge('08:30', 75)
+  await past.getByRole('button', { name: /^07:30\s*Walking.*45 min/ }).waitFor()
+  await past.getByRole('button', { name: /^08:15\s*Sitting/ }).waitFor()
+  await dragEdge('08:45', 15)
+  await past.getByRole('button', { name: /^08:55\s*Eating.*5 min/ }).waitFor()
+
+  // Overlaps are impossible; an edit that covers other blocks says so first.
+  await past.mouse.click(x(100), y)
+  await past.getByLabel('To', { exact: true }).fill('09:10')
+  await past
+    .getByText(/Replaces sitting 08:15–08:55, eating 08:55–09:00\.$/)
+    .waitFor()
+  await past.screenshot({
+    path: 'test-results/timeline-overlap.png',
+    fullPage: true,
+  })
+  await past.getByRole('button', { name: 'Cancel' }).click()
   await past.context().close()
 
   // --- Two devices sync live ------------------------------------------------

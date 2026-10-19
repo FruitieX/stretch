@@ -2,9 +2,28 @@ import { useRef, useState, type PointerEvent } from 'react'
 import { useApp } from '../app.tsx'
 import { ActivityIcon, Button, color } from './ui.tsx'
 import { DOING, LABELS, type Activity } from '../lib/model.ts'
-import { deleteSpan, editSpan, paint } from '../lib/edit.ts'
-import type { Span } from '../lib/timeline.ts'
-import { HOUR, MINUTE, atClock, clock, duration } from '../lib/time.ts'
+import {
+  SNAP,
+  deleteSpan,
+  edgeLimits,
+  editSpan,
+  moveEdge,
+  paint,
+  replaced,
+  toMarks,
+  type Mark as Change,
+} from '../lib/edit.ts'
+import { sortEvents, spans, time, type Span } from '../lib/timeline.ts'
+import {
+  HOUR,
+  MINUTE,
+  addDays,
+  atClock,
+  clock,
+  duration,
+  isoLocal,
+  startOfDay,
+} from '../lib/time.ts'
 
 interface Mark {
   activity: Activity
@@ -17,18 +36,24 @@ interface Mark {
 type Selection =
   { kind: 'span'; span: Span } | { kind: 'new'; from: number; to: number }
 
-const SNAP = 5 * MINUTE
+interface Resize {
+  id: string
+  at: number
+  min: number
+  max: number
+}
+
 const CHOICES: Activity[] = ['sit', 'stand', 'walk', 'eat', 'break']
 
 /**
  * Today on one line: what happened (solid) and a possible rest of the day
- * (faded). Click a block to edit it; drag across the bar to fill in a time
- * range.
+ * (faded). Click a block to edit it, drag its edges to resize it, or drag
+ * across the bar to fill in a time range.
  */
 export function DayBar() {
   const { engine, store } = useApp()
-  const { today, preview } = engine.plan
   const now = engine.now
+  const dayStart = startOfDay(now)
   const track = useRef<HTMLDivElement>(null)
   const [hover, setHover] = useState<Mark | null>(null)
   const [selection, setSelection] = useState<Selection | null>(null)
@@ -38,6 +63,32 @@ export function DayBar() {
     to: number
     moved: boolean
   } | null>(null)
+  const [resize, setResize] = useState<Resize | null>(null)
+
+  // While resizing, show the timeline as it will be after letting go.
+  const today = resize
+    ? spans(
+        sortEvents(
+          store.events.map((e) =>
+            e.id === resize.id ? { ...e, at: isoLocal(resize.at) } : e,
+          ),
+        ),
+        dayStart,
+        addDays(dayStart, 1),
+        now,
+        store.settings,
+      )
+    : engine.plan.today
+
+  // Block edges are activity changes; an edge between two untracked
+  // stretches has no block to resize.
+  const edges = store.events.filter((e, i) => {
+    const t = time(e)
+    if (t < dayStart || t > now) return false
+    const prev = store.events[i - 1]
+    const before = prev && time(prev) >= dayStart ? prev.activity : 'off'
+    return e.activity !== 'off' || before !== 'off'
+  })
 
   const marks: Mark[] = [
     ...today.map((s) => ({
@@ -47,7 +98,7 @@ export function DayBar() {
       planned: false,
       span: s,
     })),
-    ...preview
+    ...(resize ? [] : engine.plan.preview)
       .filter((b) => b.end > now)
       .map((b) => ({
         activity: b.activity,
@@ -71,13 +122,15 @@ export function DayBar() {
   const hours: number[] = []
   for (let t = Math.ceil(from / HOUR) * HOUR; t <= to; t += HOUR) hours.push(t)
 
-  /** The time under the pointer, snapped and never in the future. */
-  const timeAt = (clientX: number) => {
+  const rawTimeAt = (clientX: number) => {
     const rect = track.current!.getBoundingClientRect()
-    const t = from + ((clientX - rect.left) / rect.width) * span
-    return Math.min(now, Math.max(from, Math.round(t / SNAP) * SNAP))
+    return from + ((clientX - rect.left) / rect.width) * span
   }
+  /** The time under the pointer, snapped and never in the future. */
+  const timeAt = (clientX: number) =>
+    Math.min(now, Math.max(from, Math.round(rawTimeAt(clientX) / SNAP) * SNAP))
 
+  // Dragging across the bar fills in a range; a click edits or adds a block.
   const onDown = (e: PointerEvent) => {
     if (e.button !== 0) return
     const t = timeAt(e.clientX)
@@ -98,12 +151,7 @@ export function DayBar() {
       if (b - a >= SNAP) setSelection({ kind: 'new', from: a, to: b })
       return
     }
-    // A click: edit the block under the pointer, or start a new one.
-    const t =
-      from +
-      ((e.clientX - track.current!.getBoundingClientRect().left) /
-        track.current!.getBoundingClientRect().width) *
-        span
+    const t = rawTimeAt(e.clientX)
     const hit = today.find((s) => s.start <= t && t < s.end)
     if (hit) return setSelection({ kind: 'span', span: hit })
     if (t > now) return
@@ -119,13 +167,48 @@ export function DayBar() {
     })
   }
 
-  const range = drag?.moved
-    ? { a: Math.min(drag.from, drag.to), b: Math.max(drag.from, drag.to) }
-    : selection?.kind === 'new'
-      ? { a: selection.from, b: selection.to }
-      : selection?.kind === 'span'
-        ? { a: selection.span.start, b: selection.span.end }
-        : null
+  // Dragging an edge moves that activity change; neighbours stop it.
+  const startResize = (e: PointerEvent<HTMLDivElement>, id: string) => {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    const limits = edgeLimits(toMarks(store.events), id, now, dayStart)
+    const event = store.events.find((x) => x.id === id)
+    if (!limits || !event || limits.min > limits.max) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    setSelection(null)
+    setResize({ id, at: time(event), ...limits })
+  }
+  const onResize = (e: PointerEvent) => {
+    if (!resize) return
+    const at = Math.round(rawTimeAt(e.clientX) / SNAP) * SNAP
+    setResize({
+      ...resize,
+      at: Math.min(resize.max, Math.max(resize.min, at)),
+    })
+  }
+  const endResize = () => {
+    if (!resize) return
+    const { id, at } = resize
+    setResize(null)
+    engine.editTimeline((marks, t) => moveEdge(marks, id, at, t, dayStart))
+  }
+  const nudge = (id: string, by: number) => {
+    const event = store.events.find((x) => x.id === id)
+    if (!event) return
+    engine.editTimeline((marks, t) =>
+      moveEdge(marks, id, time(event) + by, t, dayStart),
+    )
+  }
+
+  const range = resize
+    ? null
+    : drag?.moved
+      ? { a: Math.min(drag.from, drag.to), b: Math.max(drag.from, drag.to) }
+      : selection?.kind === 'new'
+        ? { a: selection.from, b: selection.to }
+        : selection?.kind === 'span'
+          ? { a: selection.span.start, b: selection.span.end }
+          : null
 
   return (
     <div>
@@ -134,8 +217,8 @@ export function DayBar() {
         data-start={from}
         data-end={to}
         role="group"
-        aria-label="Today's timeline. Click a block to edit it, or drag to fill in a time range."
-        className="relative h-9 cursor-crosshair touch-pan-y select-none rounded-md bg-surface"
+        aria-label="Today's timeline. Click a block to edit it, drag its edges to resize it, or drag across the bar to fill in a time range."
+        className="group/track relative h-9 cursor-crosshair touch-pan-y select-none rounded-md bg-surface"
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
@@ -169,6 +252,42 @@ export function DayBar() {
             }}
           />
         ))}
+        {edges.map((e) => {
+          const t = resize?.id === e.id ? resize.at : time(e)
+          if (t < from) return null
+          const active = resize?.id === e.id
+          return (
+            <div
+              key={e.id}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label={`Switch at ${clock(t)}. Drag, or use the arrow keys, to move it.`}
+              aria-valuetext={clock(t)}
+              tabIndex={0}
+              title={`${clock(t)} · drag to resize`}
+              onPointerDown={(ev) => startResize(ev, e.id)}
+              onPointerMove={onResize}
+              onPointerUp={endResize}
+              onPointerCancel={() => setResize(null)}
+              onKeyDown={(ev) => {
+                if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') {
+                  ev.preventDefault()
+                  nudge(e.id, ev.key === 'ArrowLeft' ? -SNAP : SNAP)
+                }
+              }}
+              className="group/edge absolute -inset-y-1 z-10 w-3 -translate-x-1/2 cursor-ew-resize touch-none outline-none"
+              style={{ left: `${pos(t)}%` }}
+            >
+              <span
+                className={`mx-auto block h-full w-1 rounded bg-ink transition-opacity ${
+                  active
+                    ? 'opacity-90'
+                    : 'opacity-0 group-hover/track:opacity-30 group-hover/edge:!opacity-80 group-focus-visible/edge:!opacity-90'
+                }`}
+              />
+            </div>
+          )
+        })}
         {range && (
           <div
             className="pointer-events-none absolute -inset-y-1 rounded-md ring-2 ring-ink"
@@ -211,11 +330,13 @@ export function DayBar() {
         />
       ) : (
         <p className="mt-1 min-h-5 text-xs text-ink-2">
-          {drag?.moved
-            ? `${clock(Math.min(drag.from, drag.to))}–${clock(Math.max(drag.from, drag.to))}`
-            : hover
-              ? label(hover)
-              : 'Click a block to edit it, or drag across the bar to fill in time.'}
+          {resize
+            ? `Switch at ${clock(resize.at)}`
+            : drag?.moved
+              ? `${clock(Math.min(drag.from, drag.to))}–${clock(Math.max(drag.from, drag.to))}`
+              : hover
+                ? label(hover)
+                : 'Click a block to edit it, drag its edges to resize, or drag across the bar to fill in time.'}
         </p>
       )}
     </div>
@@ -229,7 +350,7 @@ function BlockEditor({
   selection: Selection
   onClose: () => void
 }) {
-  const { engine } = useApp()
+  const { engine, store } = useApp()
   const now = engine.now
   const span = selection.kind === 'span' ? selection.span : null
   const [activity, setActivity] = useState<Activity>(span?.activity ?? 'sit')
@@ -248,24 +369,32 @@ function BlockEditor({
   const stop = untilNow ? now : end
   const valid = start < stop && start <= now
 
-  const save = () => {
-    if (span) {
-      const ref = {
-        id: span.eventId,
-        start: span.start,
-        end: span.end,
-        open: span.open,
-      }
-      engine.editTimeline((marks, t) =>
-        editSpan(marks, ref, activity, start, untilNow ? t : end, t),
-      )
-    } else {
-      engine.editTimeline((marks, t) =>
-        paint(marks, start, untilNow ? t : end, activity, t),
-      )
-    }
-    onClose()
-  }
+  const apply = (marks: Change[], t: number) =>
+    span
+      ? editSpan(
+          marks,
+          {
+            id: span.eventId,
+            start: span.start,
+            end: span.end,
+            open: span.open,
+          },
+          activity,
+          start,
+          untilNow ? t : end,
+          t,
+        )
+      : paint(marks, start, untilNow ? t : end, activity, t)
+
+  // Blocks can't overlap: whatever the new times fully cover is replaced,
+  // so say so before saving.
+  const before = toMarks(store.events)
+  const lost = valid
+    ? replaced(before, apply(before, now), now).map((m) => {
+        const next = before.find((x) => x.at > m.at)
+        return `${DOING[m.activity].toLowerCase()} ${clock(m.at)}–${clock(next ? next.at : now)}`
+      })
+    : []
 
   return (
     <div className="mt-2 flex flex-col gap-3 rounded-xl bg-surface p-3">
@@ -333,6 +462,11 @@ function BlockEditor({
           {valid ? duration((stop - start) / MINUTE) : 'Check the times'}
         </span>
       </div>
+      {lost.length > 0 && (
+        <p className="text-xs text-alarm" role="status">
+          Replaces {lost.join(', ')}.
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {span && (
           <Button
@@ -355,7 +489,14 @@ function BlockEditor({
         <Button variant="ghost" onClick={onClose}>
           Cancel
         </Button>
-        <Button variant="primary" disabled={!valid} onClick={save}>
+        <Button
+          variant="primary"
+          disabled={!valid}
+          onClick={() => {
+            engine.editTimeline(apply)
+            onClose()
+          }}
+        >
           Save
         </Button>
       </div>
