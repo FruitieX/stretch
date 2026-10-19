@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BellOff, Pause, Pencil, Phone, Play, Undo2, X } from 'lucide-react'
 import { useApp } from '../app.tsx'
 import { ActivityIcon, Button, Card, Meter, color } from '../components/ui.tsx'
@@ -222,6 +222,21 @@ function Picker() {
 function QuickActions() {
   const { engine, store } = useApp()
   const [awayOpen, setAwayOpen] = useState(false)
+  const awayRef = useRef<HTMLDivElement>(null)
+  // Close the "I was away" menu on a click outside it or Escape.
+  useEffect(() => {
+    if (!awayOpen) return
+    const onDown = (e: PointerEvent) => {
+      if (!awayRef.current?.contains(e.target as Node)) setAwayOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setAwayOpen(false)
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [awayOpen])
   const { inCall, current } = engine.plan
   const paused = Boolean(store.status.pausedDay) && engine.plan.quiet && !inCall
   const callLeft = inCall
@@ -251,7 +266,7 @@ function QuickActions() {
           </Button>
         )}
         {current && current.activity !== 'away' && (
-          <div className="relative">
+          <div className="relative" ref={awayRef}>
             <Button
               onClick={() => setAwayOpen((v) => !v)}
               aria-expanded={awayOpen}

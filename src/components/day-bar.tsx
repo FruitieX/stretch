@@ -4,6 +4,7 @@ import { ActivityIcon, Button, color } from './ui.tsx'
 import { DOING, LABELS, type Activity } from '../lib/model.ts'
 import {
   SNAP,
+  snapTime,
   deleteSpan,
   edgeLimits,
   editSpan,
@@ -81,9 +82,9 @@ export function DayBar() {
   const moving = resize !== null || (slide?.moved ?? false)
   const preview = (marks: Change[]) =>
     resize
-      ? moveEdge(marks, resize.id, resize.at, now, dayStart)
+      ? moveEdge(marks, resize.id, resize.at, Date.now(), dayStart)
       : slide?.moved
-        ? slideBlock(marks, slide.id, slide.delta, now, dayStart)
+        ? slideBlock(marks, slide.id, slide.delta, Date.now(), dayStart)
         : marks
   const today = moving
     ? spans(
@@ -151,7 +152,10 @@ export function DayBar() {
   }
   /** The time under the pointer, snapped and never in the future. */
   const timeAt = (clientX: number) =>
-    Math.min(now, Math.max(from, Math.round(rawTimeAt(clientX) / SNAP) * SNAP))
+    Math.min(now, Math.max(from, snapTime(rawTimeAt(clientX), edgeTimes())))
+  /** Block edges to snap to (plus now), leaving out the ones being moved. */
+  const edgeTimes = (...moving: number[]) =>
+    [...edges.map(time), now].filter((t) => !moving.includes(t))
 
   // Dragging a block slides it; dragging across empty time fills in a
   // range; a click edits or adds a block.
@@ -163,7 +167,7 @@ export function DayBar() {
     const event = hit && store.events.find((x) => x.id === hit.eventId)
     const limits =
       event && time(event) === hit.start
-        ? slideLimits(toMarks(store.events), hit.eventId, now, dayStart)
+        ? slideLimits(toMarks(store.events), hit.eventId, Date.now(), dayStart)
         : null
     if (hit && limits) {
       setSlide({
@@ -183,7 +187,13 @@ export function DayBar() {
     if (slide) {
       const moved = slide.moved || Math.abs(e.clientX - slide.x) > 4
       const raw = rawTimeAt(e.clientX) - rawTimeAt(slide.x)
-      const delta = Math.round(raw / SNAP) * SNAP
+      // Snap whichever edge of the block lands closer to a snap point.
+      const { start, end, open } = slide.span
+      const others = edgeTimes(start, end)
+      const byStart = snapTime(start + raw, others) - start
+      const byEnd = open ? byStart : snapTime(end + raw, others) - end
+      const delta =
+        Math.abs(byEnd - raw) < Math.abs(byStart - raw) ? byEnd : byStart
       setSlide({
         ...slide,
         moved,
@@ -235,7 +245,7 @@ export function DayBar() {
   const startResize = (e: PointerEvent<HTMLDivElement>, id: string) => {
     if (e.button !== 0) return
     e.stopPropagation()
-    const limits = edgeLimits(toMarks(store.events), id, now, dayStart)
+    const limits = edgeLimits(toMarks(store.events), id, Date.now(), dayStart)
     const event = store.events.find((x) => x.id === id)
     if (!limits || !event || limits.min > limits.max) return
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -244,7 +254,11 @@ export function DayBar() {
   }
   const onResize = (e: PointerEvent) => {
     if (!resize) return
-    const at = Math.round(rawTimeAt(e.clientX) / SNAP) * SNAP
+    const moving = store.events.find((x) => x.id === resize.id)
+    const at = snapTime(
+      rawTimeAt(e.clientX),
+      edgeTimes(moving ? time(moving) : NaN),
+    )
     setResize({
       ...resize,
       at: Math.min(resize.max, Math.max(resize.min, at)),
@@ -281,7 +295,7 @@ export function DayBar() {
         data-start={from}
         data-end={to}
         role="group"
-        aria-label="Today's timeline. Click a block to edit it, drag its edges to resize it, or drag across the bar to fill in a time range."
+        aria-label="Today's timeline. Click a block to edit it, drag it to move it, drag its edges to resize it, or drag across empty time to fill it in."
         className="group/track relative h-9 cursor-crosshair touch-pan-y select-none rounded-md bg-surface"
         onPointerDown={onDown}
         onPointerMove={onMove}
@@ -398,7 +412,7 @@ export function DayBar() {
           onClose={() => setSelection(null)}
         />
       ) : (
-        <p className="mt-1 min-h-5 text-xs text-ink-2">
+        <p className="mt-1 h-4 truncate text-xs leading-4 text-ink-2">
           {resize
             ? `Switch at ${clock(resize.at)}`
             : slide?.moved
@@ -407,7 +421,7 @@ export function DayBar() {
                 ? `${clock(Math.min(drag.from, drag.to))}–${clock(Math.max(drag.from, drag.to))}`
                 : hover
                   ? label(hover)
-                  : 'Click a block to edit it, drag it to move it, drag its edges to resize, or drag across empty time to fill it in.'}
+                  : 'Click to edit · drag to move · drag edges to resize · drag empty time to fill in'}
         </p>
       )}
     </div>

@@ -8,6 +8,7 @@ import {
   paint,
   replaced,
   slideBlock,
+  snapTime,
   switchTo,
   type Mark,
 } from './edit.ts'
@@ -290,5 +291,38 @@ describe('switchTo', () => {
     const lateYesterday = at('00:00') - 30 * sec
     const y = [{ ...marks[0], at: lateYesterday }]
     expect(switchTo(y, 'stand', at('00:00')).length).toBe(2)
+  })
+})
+
+describe('closing gaps', () => {
+  const floor = at('00:00')
+  const marks = [
+    m('a', '09:00', 'stand'),
+    m('gap', '09:30', 'off'),
+    m('b', '10:00', 'sit'),
+  ]
+
+  it('resizing a block can close an untracked gap exactly', () => {
+    const after = moveEdge(marks, 'gap', at('10:20'), now, floor)
+    expect(view(after)).toEqual(['09:00 stand', '10:00 sit'])
+    expect(diff(marks, after).remove).toEqual(['gap'])
+  })
+
+  it('sliding a block can butt up against the next one', () => {
+    const after = slideBlock(marks, 'a', 45 * 60_000, now, floor)
+    expect(view(after)).toEqual(['09:30 stand', '10:00 sit'])
+  })
+
+  it('pulling the next block back over a gap closes it too', () => {
+    expect(view(moveEdge(marks, 'b', at('09:00'), now, floor))).toEqual([
+      '09:00 stand',
+      '09:30 sit',
+    ])
+  })
+
+  it('snaps to a nearby edge before the grid', () => {
+    expect(snapTime(at('10:01'), [at('10:02')])).toBe(at('10:02'))
+    expect(snapTime(at('10:06'), [at('10:02')])).toBe(at('10:05'))
+    expect(snapTime(at('10:06'), [])).toBe(at('10:05'))
   })
 })

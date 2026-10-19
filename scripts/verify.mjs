@@ -319,6 +319,80 @@ try {
   await past.getByRole('button', { name: 'Cancel' }).click()
   await past.context().close()
 
+  // --- Lining blocks up, layout stability, menus ---------------------------
+  const align = await (await context()).newPage()
+  const alignNow = todayAt('10:30').getTime() + 2 * 86400000
+  await align.clock.install({ time: new Date(alignNow) })
+  await align.goto(origin)
+  await align.getByRole('button', { name: 'Later' }).click()
+  await align.getByRole('button', { name: 'Sit', exact: true }).click()
+  await align.getByText('Sitting since 10:30').waitFor()
+
+  // "I was away…" closes on a click outside it and on Escape.
+  await align.getByRole('button', { name: 'I was away…' }).click()
+  await align.getByRole('button', { name: '15m', exact: true }).waitFor()
+  await align
+    .getByText('Ready when you are')
+    .or(align.locator('header'))
+    .first()
+    .click()
+  await align
+    .getByRole('button', { name: '15m', exact: true })
+    .waitFor({ state: 'detached' })
+  await align.getByRole('button', { name: 'I was away…' }).click()
+  await align.keyboard.press('Escape')
+  await align
+    .getByRole('button', { name: '15m', exact: true })
+    .waitFor({ state: 'detached' })
+
+  const alignBar = align.getByRole('group', { name: /Today's timeline/ })
+  const ax = async (clock) => {
+    const box = await alignBar.boundingBox()
+    const [start, end] = await alignBar.evaluate((el) => [
+      Number(el.dataset.start),
+      Number(el.dataset.end),
+    ])
+    const t = todayAt(clock).getTime() + 2 * 86400000
+    return {
+      x: box.x + ((t - start) / (end - start)) * box.width,
+      y: box.y + box.height / 2,
+    }
+  }
+  // Fill 09:00–09:30 as standing, leaving an untracked gap before 10:30.
+  let p1 = await ax('09:00')
+  let p2 = await ax('09:30')
+  await align.mouse.move(p1.x, p1.y)
+  await align.mouse.down()
+  await align.mouse.move(p2.x, p2.y, { steps: 6 })
+  await align.mouse.up()
+  await align.getByRole('radio', { name: 'Stand' }).click()
+  await align.getByRole('button', { name: 'Save' }).click()
+  await align.getByRole('separator', { name: /Switch at 09:30/ }).waitFor()
+
+  // The hint under the bar keeps its height while hovering blocks.
+  const hint = align.getByText(/Click to edit · drag to move/)
+  const idle = (await hint.boundingBox()).height
+  p1 = await ax('09:15')
+  await align.mouse.move(p1.x, p1.y)
+  const hovered = await align.getByText(/09:00–09:30 · Standing/).boundingBox()
+  assert.equal(hovered.height, idle, 'hint line keeps its height on hover')
+
+  // Dragging the block's end past the next block closes the gap exactly.
+  const gapEdge = await align
+    .getByRole('separator', { name: /Switch at 09:30/ })
+    .boundingBox()
+  p2 = await ax('10:50')
+  await align.mouse.move(gapEdge.x + gapEdge.width / 2, p2.y)
+  await align.mouse.down()
+  await align.mouse.move(p2.x, p2.y, { steps: 8 })
+  await align.mouse.up()
+  await align.getByRole('link', { name: 'Today' }).click()
+  await align
+    .getByRole('button', { name: /^09:00\s*Standing.*1 h 30 min/ })
+    .waitFor()
+  assert.equal(await align.getByText('Stopped tracking').count(), 0)
+  await align.context().close()
+
   // --- Two devices sync live ------------------------------------------------
   const laptop = await (await context()).newPage()
   const phone = await (

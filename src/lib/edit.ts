@@ -129,13 +129,49 @@ export function diff(before: Mark[], after: Mark[]): Ops {
   }
 }
 
-/** Timeline edits snap to five minutes, and no block gets shorter than that. */
+/**
+ * Timeline edits snap to five minutes, and recorded blocks never get shorter
+ * than that when a neighbour is dragged into them.
+ */
 export const SNAP = 5 * 60_000
 
 /**
- * How far the change `id` (a block edge) can move: never past the
- * neighbouring changes, so resizing can't swallow a block, and never into
- * the future. `floor` bounds the first change of the day.
+ * The time to use for a pointer at `t`: the nearest block edge within a few
+ * minutes (so blocks can be lined up exactly), otherwise the 5-minute grid.
+ */
+export function snapTime(
+  t: number,
+  edges: number[],
+  magnet = 3 * 60_000,
+): number {
+  let best: number | undefined
+  for (const e of edges) {
+    if (
+      Math.abs(e - t) <= magnet &&
+      (best === undefined || Math.abs(e - t) < Math.abs(best - t))
+    ) {
+      best = e
+    }
+  }
+  return best ?? Math.round(t / SNAP) * SNAP
+}
+
+/** How short a block may get when a neighbour is dragged into it: untracked gaps can close entirely. */
+const margin = (a: Activity) => (a === 'off' ? 0 : SNAP)
+
+/** Removes blocks left with no length, then merges repeats, around [lo, hi]. */
+function collapse(marks: Mark[], lo: number, hi: number): Mark[] {
+  const sorted = sort(marks)
+  const kept = sorted.filter(
+    (m, j) => !(sorted[j + 1] && sorted[j + 1].at <= m.at),
+  )
+  return tidy(kept, lo, hi)
+}
+
+/**
+ * How far the change `id` (a block edge) can move: neighbouring blocks keep
+ * at least `SNAP` (untracked gaps may close), nothing moves into the future,
+ * and `floor` bounds the first change of the day.
  */
 export function edgeLimits(
   marks: Mark[],
@@ -145,11 +181,13 @@ export function edgeLimits(
 ): { min: number; max: number } | null {
   const i = marks.findIndex((m) => m.id === id)
   if (i < 0) return null
+  const edge = marks[i]
   const prev = marks[i - 1]
   const next = marks[i + 1]
+  const sameDay = prev && dayKey(prev.at) === dayKey(edge.at)
   return {
-    min: Math.max(floor, prev ? prev.at + SNAP : floor),
-    max: next ? Math.min(next.at - SNAP, now) : now,
+    min: sameDay ? Math.max(floor, prev.at + margin(prev.activity)) : floor,
+    max: next ? Math.min(next.at - margin(edge.activity), now) : now,
   }
 }
 
@@ -163,8 +201,13 @@ export function moveEdge(
 ): Mark[] {
   const limits = edgeLimits(marks, id, now, floor)
   if (!limits || limits.min > limits.max) return marks
+  const old = marks.find((m) => m.id === id)!.at
   const at = Math.min(limits.max, Math.max(limits.min, to))
-  return marks.map((m) => (m.id === id ? { ...m, at } : m))
+  return collapse(
+    marks.map((m) => (m.id === id ? { ...m, at } : m)),
+    Math.min(old, at, limits.min),
+    Math.max(old, at, limits.max),
+  )
 }
 
 /**
@@ -186,7 +229,8 @@ export function replaced(before: Mark[], after: Mark[], now: number): Mark[] {
 /**
  * How far the block starting at change `id` can slide (in ms, negative =
  * earlier). Its end edge moves with it unless it is the current activity;
- * neighbours shrink to at most `SNAP` and nothing moves past `now`.
+ * recorded neighbours keep at least `SNAP`, untracked gaps may close, and
+ * nothing moves past `now`.
  */
 export function slideLimits(
   marks: Mark[],
@@ -200,9 +244,15 @@ export function slideLimits(
   const prev = marks[i - 1]
   const end = marks[i + 1]
   const after = marks[i + 2]
-  const min = Math.max(floor, prev ? prev.at + SNAP : floor) - block.at
+  const sameDay = prev && dayKey(prev.at) === dayKey(block.at)
+  const min =
+    (sameDay ? Math.max(floor, prev.at + margin(prev.activity)) : floor) -
+    block.at
   const max = end
-    ? Math.min(after ? after.at : now, now) - SNAP - end.at
+    ? Math.min(
+        after ? after.at - margin(end.activity) : now - margin(end.activity),
+        now,
+      ) - end.at
     : now - SNAP - block.at
   return { min: Math.min(0, min), max: Math.max(0, max) }
 }
@@ -219,8 +269,12 @@ export function slideBlock(
   if (!limits) return marks
   const d = Math.min(limits.max, Math.max(limits.min, delta))
   const i = marks.findIndex((m) => m.id === id)
-  return marks.map((m, j) =>
-    j === i || j === i + 1 ? { ...m, at: m.at + d } : m,
+  const lo = (marks[i - 1]?.at ?? marks[i].at) - 1
+  const hi = (marks[i + 2]?.at ?? now) + 1
+  return collapse(
+    marks.map((m, j) => (j === i || j === i + 1 ? { ...m, at: m.at + d } : m)),
+    lo,
+    hi,
   )
 }
 
