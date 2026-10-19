@@ -162,7 +162,7 @@ try {
   // "Not now" snoozes for ten minutes.
   await page.getByRole('button', { name: 'Not now' }).click()
   await page.getByText(/Next: stand around 09:56/).waitFor()
-  assert.equal(await page.getByText('Time to stand?').count(), 0)
+  await page.getByText('Time to stand?').waitFor({ state: 'detached' })
 
   // Keyboard: 2 = stand.
   await page.keyboard.press('2')
