@@ -1,0 +1,35 @@
+{
+  "name": "stretch",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build && node scripts/build-pwa.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "TZ=Europe/Helsinki vitest run",
+    "test:ui": "node scripts/verify.mjs",
+    "icons": "node scripts/make-icons.mjs",
+    "format": "prettier --write src scripts docs README.md AGENTS.md package.json vite.config.ts tsconfig.json .github",
+    "format:check": "prettier --check src scripts docs README.md AGENTS.md package.json vite.config.ts tsconfig.json .github"
+  },
+  "dependencies": {
+    "@tanstack/react-router": "^1.170.45",
+    "lucide-react": "^1.59.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "playwright": "^1.64.1",
+    "prettier": "^3.9.10",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  }
+}

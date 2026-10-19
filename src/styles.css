@@ -1,0 +1,67 @@
+@import 'tailwindcss';
+
+/* Activity colors: the validated categorical palette, in stacking order. */
+:root {
+  color-scheme: light;
+  --surface: #f6f6f4;
+  --card: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #85847f;
+  --line: #e4e3df;
+  --sit: #2a78d6;
+  --stand: #eb6834;
+  --walk: #1baf7a;
+  --eat: #eda100;
+  --break: #e87ba4;
+  --away: #b9b8b2;
+  --alarm: #c8312f;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --surface: #121211;
+    --card: #1a1a19;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --ink-3: #8d8c85;
+    --line: #2c2c2a;
+    --sit: #3987e5;
+    --stand: #d95926;
+    --walk: #199e70;
+    --eat: #c98500;
+    --break: #d55181;
+    --away: #5d5c58;
+    --alarm: #e66767;
+  }
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-alarm: var(--alarm);
+}
+
+html,
+body {
+  background: var(--surface);
+  color: var(--ink);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
