@@ -250,7 +250,7 @@ export function StatsPage() {
                     )
                   })}
                 </div>
-                <span className="w-12 shrink-0 text-right text-xs tabular-nums text-ink-2">
+                <span className="w-14 shrink-0 text-right text-xs tabular-nums text-ink-2">
                   {d.tracked ? short(d.tracked) : ''}
                 </span>
               </li>

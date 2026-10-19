@@ -17,6 +17,7 @@ import {
 import { motion } from 'motion/react'
 import { AppProvider, useApp } from './app.tsx'
 import { ActivityIcon, SPRING, color, tone } from './components/ui.tsx'
+import { SoundBanner } from './components/setup.tsx'
 import { NowPage } from './routes/now.tsx'
 import { TodayPage } from './routes/today.tsx'
 import { StatsPage } from './routes/stats.tsx'
@@ -114,6 +115,7 @@ function Layout() {
           </button>
         </div>
       )}
+      <SoundBanner />
       <main className="flex-1">
         <motion.div
           key={path}

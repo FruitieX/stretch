@@ -8,7 +8,7 @@ import {
 import { nextPosture, plan, snoozeFor } from './planner.ts'
 import { onIdle, onReturn } from './idle.ts'
 import { daySummaries, sortEvents, spans, totals } from './timeline.ts'
-import { MINUTE, isoLocal } from './time.ts'
+import { MINUTE, isoLocal, short } from './time.ts'
 
 // Tests run with TZ=Europe/Helsinki (see package.json).
 const at = (clock: string, day = '2026-10-19') =>
@@ -346,4 +346,11 @@ describe('idle', () => {
 it('formats local times with offsets', () => {
   expect(isoLocal(at('09:02'))).toBe('2026-10-19T09:02:00.000+03:00')
   expect(MINUTE).toBe(60000)
+})
+
+it('formats compact durations readably', () => {
+  expect(short(45)).toBe('45m')
+  expect(short(120)).toBe('2h')
+  expect(short(286)).toBe('4h 46m')
+  expect(short(62)).toBe('1h 2m')
 })

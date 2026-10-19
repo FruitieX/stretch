@@ -53,9 +53,10 @@ export function duration(minutes: number): string {
   return `${Math.floor(m / 60)} h ${pad(m % 60)} min`
 }
 
-/** Compact "1h05" / "45m" for tight spaces. */
+/** Compact "45m" / "2h" / "4h 46m" for tight spaces. */
 export function short(minutes: number): string {
   const m = Math.max(0, Math.round(minutes))
   if (m < 60) return `${m}m`
-  return `${Math.floor(m / 60)}h${pad(m % 60)}`
+  const rest = m % 60
+  return rest ? `${Math.floor(m / 60)}h ${rest}m` : `${Math.floor(m / 60)}h`
 }
