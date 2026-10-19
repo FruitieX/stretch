@@ -12,7 +12,9 @@ import { clearNotification, notify } from './notify.ts'
 import { chime } from './sound.ts'
 import { deviceId } from './device.ts'
 import { load, persist, type Store } from './store.ts'
-import { MINUTE, dayKey, duration } from './time.ts'
+import { MINUTE, dayKey, duration, isoLocal } from './time.ts'
+import { backfill, type Row } from './backfill.ts'
+import { diff, toMarks, type Mark } from './edit.ts'
 
 const TICK = 5000
 const FIRED_KEY = 'stretch.fired'
@@ -343,6 +345,49 @@ export function useEngine(store: Store, device: Device) {
         resume === 'break' || resume === 'away' ? 'sit' : resume,
         Date.now() + 1,
       )
+      claim()
+    },
+    /**
+     * "Doing rows[0] since …, before that rows[1] since …" (newest first).
+     * Returns an error message, or null once saved.
+     */
+    rewrite: (rows: Row[]): string | null => {
+      const { p, store } = latest.current
+      const event = store.events.find((e) => e.id === p.current?.eventId)
+      if (!event) return 'Pick what you’re doing first.'
+      const result = backfill(store.events, event, rows, Date.now())
+      if ('error' in result) return result.error
+      for (const id of result.remove) store.deleteEvent(id)
+      for (const row of result.add) store.record(row.activity, row.start)
+      store.saveEvent({
+        ...event,
+        activity: result.update.activity,
+        at: isoLocal(result.update.at),
+        source: 'manual',
+      })
+      setReturned(null)
+      claim()
+      return null
+    },
+    /** Applies a timeline edit (see edit.ts) as saves and deletes. */
+    editTimeline: (change: (marks: Mark[], now: number) => Mark[]) => {
+      const { store } = latest.current
+      const before = toMarks(store.events)
+      const ops = diff(before, change(before, Date.now()))
+      for (const id of ops.remove) store.deleteEvent(id)
+      for (const m of ops.update) {
+        const event = store.events.find((e) => e.id === m.id)
+        if (event) {
+          store.saveEvent({
+            ...event,
+            at: isoLocal(m.at),
+            activity: m.activity,
+            source: 'manual',
+          })
+        }
+      }
+      for (const m of ops.add) store.record(m.activity, m.at, m.source)
+      setReturned(null)
       claim()
     },
     setCall: (minutes: number | null) =>

@@ -127,24 +127,28 @@ export function useStore() {
     if (flushing.current) return
     flushing.current = true
     try {
-      while (outboxRef.current.length) {
-        const op = outboxRef.current[0]
-        try {
-          await send(op)
-        } catch (e) {
-          if (!(e instanceof Rejected)) {
-            setOnline(false)
-            return
+      // Changes queued while this flush was refreshing would otherwise wait
+      // for the retry timer, so keep going until the outbox is empty.
+      do {
+        while (outboxRef.current.length) {
+          const op = outboxRef.current[0]
+          try {
+            await send(op)
+          } catch (e) {
+            if (!(e instanceof Rejected)) {
+              setOnline(false)
+              return
+            }
+            setError(e.message)
           }
-          setError(e.message)
+          const rest = outboxRef.current.filter((o) => o !== op)
+          outboxRef.current = rest
+          setOutbox(rest)
+          persist(OUTBOX_KEY, rest)
         }
-        const rest = outboxRef.current.filter((o) => o !== op)
-        outboxRef.current = rest
-        setOutbox(rest)
-        persist(OUTBOX_KEY, rest)
-      }
-      setOnline(true)
-      await refresh()
+        setOnline(true)
+        await refresh()
+      } while (outboxRef.current.length)
     } finally {
       flushing.current = false
     }

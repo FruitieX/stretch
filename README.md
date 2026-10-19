@@ -9,6 +9,11 @@ is always one tap, "Not now" backs off, and nothing blocks you.
 - **Now**: what you're doing and for how long, the next suggestion, today's
   timeline with a faint possible rest of the day, and standing/walking targets.
   "In a call" mutes alerts; "I was away…" logs a break you forgot to record.
+- **Timeline** (on Now and Today): click a block to change its activity or
+  times, or drag across the bar (empty or not) to fill in a time range, e.g.
+  "standing 08:00–09:00". Right after switching, "Started earlier? 15m · 30m ·
+  1h · 2h ago" backdates in one tap; **Adjust** rewrites the recent past as
+  "sitting since …, before that standing since …".
 - **Today**: every change today; tap one to fix its activity or time.
 - **Stats**: time per activity per day (chart or table) and CSV export.
 - **Settings**: workday, limits, targets and alarm timing (shared by all

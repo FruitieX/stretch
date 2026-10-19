@@ -136,7 +136,7 @@ try {
   // Dismiss the permissions prompt for this check.
   await page.getByRole('button', { name: 'Later' }).click()
 
-  await page.getByRole('button', { name: /^Sit/ }).click()
+  await page.getByRole('button', { name: 'Sit', exact: true }).click()
   await page.getByText('Sitting since 09:00').waitFor()
   await page.getByText(/Next: stand around 09:45/).waitFor()
 
@@ -180,10 +180,10 @@ try {
   // The timeline shows the idle change and can be edited.
   await page.getByRole('link', { name: 'Today' }).click()
   await page.getByRole('button', { name: /Away.*idle.*20 min/ }).waitFor()
-  await page.getByRole('button', { name: /09:00.*Sitting/ }).click()
+  await page.getByRole('button', { name: /^09:00\s*Sitting/ }).click()
   await page.getByRole('radio', { name: 'Walk' }).click()
   await page.getByRole('button', { name: 'Save' }).click()
-  await page.getByRole('button', { name: /09:00.*Walking/ }).waitFor()
+  await page.getByRole('button', { name: /^09:00\s*Walking/ }).waitFor()
   await page.screenshot({ path: 'test-results/today.png', fullPage: true })
 
   await page.getByRole('link', { name: 'Stats' }).click()
@@ -204,6 +204,61 @@ try {
   await page.screenshot({ path: 'test-results/settings.png', fullPage: true })
   await desk.close()
 
+  // --- Entering the past -----------------------------------------------------
+  // On a fresh fake day: "I've been sitting for an hour, standing before that".
+  const past = await (await context()).newPage()
+  await past.clock.install({
+    time: new Date(todayAt('09:30').getTime() + 86400000),
+  })
+  await past.goto(origin)
+  await past.getByRole('button', { name: 'Later' }).click()
+  await past.getByRole('button', { name: 'Sit', exact: true }).click()
+  await past.getByRole('button', { name: '1h ago' }).click()
+  await past.getByText('Sitting since 08:30').waitFor()
+  await past.getByRole('button', { name: 'Adjust' }).click()
+  await past.getByRole('button', { name: /Before that/ }).click()
+  await past.getByRole('button', { name: '1h before' }).click()
+  await past.screenshot({ path: 'test-results/adjust.png', fullPage: true })
+  await past.getByRole('button', { name: 'Save' }).click()
+  await past.getByRole('link', { name: 'Today' }).click()
+  await past
+    .getByRole('button', { name: /^07:30\s*Standing.*1 h 00 min/ })
+    .waitFor()
+  await past.getByRole('button', { name: /^08:30\s*Sitting/ }).waitFor()
+
+  // Timeline: click a block to edit it, drag across the bar to fill in time.
+  const bar = past.getByRole('group', { name: /Today's timeline/ })
+  const box = await bar.boundingBox()
+  const [barStart, barEnd] = await bar.evaluate((el) => [
+    Number(el.dataset.start),
+    Number(el.dataset.end),
+  ])
+  const fakeNow = todayAt('09:30').getTime() + 86400000
+  const x = (minutesAgo) =>
+    box.x +
+    ((fakeNow - minutesAgo * 60000 - barStart) / (barEnd - barStart)) *
+      box.width
+  const y = box.y + box.height / 2
+  await past.mouse.click(x(90), y)
+  await past.getByRole('radio', { name: 'Walk' }).click()
+  await past.getByRole('button', { name: 'Save' }).click()
+  await past
+    .getByRole('button', { name: /^07:30\s*Walking.*1 h 00 min/ })
+    .waitFor()
+  await past.mouse.move(x(45), y)
+  await past.mouse.down()
+  await past.mouse.move(x(30), y, { steps: 6 })
+  await past.mouse.up()
+  await past.getByRole('radio', { name: 'Eat' }).click()
+  await past.screenshot({
+    path: 'test-results/timeline-edit.png',
+    fullPage: true,
+  })
+  await past.getByRole('button', { name: 'Save' }).click()
+  await past.getByRole('button', { name: /^08:45\s*Eating.*15 min/ }).waitFor()
+  await past.getByRole('button', { name: /^09:00\s*Sitting/ }).waitFor()
+  await past.context().close()
+
   // --- Two devices sync live ------------------------------------------------
   const laptop = await (await context()).newPage()
   const phone = await (
@@ -215,11 +270,11 @@ try {
   ).newPage()
   for (const p of [laptop, phone]) {
     await p.goto(origin)
-    await p.getByRole('button', { name: /^Walk/ }).waitFor()
+    await p.getByRole('button', { name: 'Walk', exact: true }).waitFor()
   }
-  await laptop.getByRole('button', { name: /^Walk/ }).click()
+  await laptop.getByRole('button', { name: 'Walk', exact: true }).click()
   await phone.getByText(/^Walking since/).waitFor({ timeout: 5000 })
-  await phone.getByRole('button', { name: /^Eat/ }).click()
+  await phone.getByRole('button', { name: 'Eat', exact: true }).click()
   await laptop.getByText(/^Eating since/).waitFor({ timeout: 5000 })
   await phone.screenshot({
     path: 'test-results/now-phone-dark.png',

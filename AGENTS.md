@@ -12,7 +12,8 @@ devices merge by union. Saves are idempotent PUTs by client id replayed from
 an offline outbox; never let an older `updatedAt` overwrite a newer one or
 resurrect a tombstoned change. Shared `settings`/`status` documents are
 last-writer-wins; equipment, alerts and sound are per-device localStorage.
-Keep planner, timeline and idle logic pure in `src/lib` with unit tests.
+Keep planner, timeline, idle and editing logic pure in `src/lib` with unit
+tests; timeline edits go through `paint`/`editSpan` in `src/lib/edit.ts`.
 
 SSE `changed` events must carry non-empty data (browsers drop empty ones),
 and the homelab route needs `timeouts.request: 0s` for `/api/live`. The app

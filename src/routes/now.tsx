@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { BellOff, Pause, Phone, Play, Undo2, X } from 'lucide-react'
+import { BellOff, Pause, Pencil, Phone, Play, Undo2, X } from 'lucide-react'
 import { useApp } from '../app.tsx'
 import { ActivityIcon, Button, Card, Meter, color } from '../components/ui.tsx'
 import { DayBar } from '../components/day-bar.tsx'
+import { AdjustPast, StartedEarlier } from '../components/adjust.tsx'
 import { SetupBanner } from '../components/setup.tsx'
 import {
   DOING,
@@ -24,6 +25,7 @@ const KEY_HINT: Partial<Record<Activity, string>> = {
 
 function Hero() {
   const { engine, store } = useApp()
+  const [adjusting, setAdjusting] = useState(false)
   const { current, suggestion, quiet } = engine.plan
   if (!current) {
     const off = store.events.at(-1)?.activity === 'off'
@@ -53,7 +55,7 @@ function Hero() {
         >
           <ActivityIcon activity={current.activity} size={28} />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm text-ink-2">
             {DOING[current.activity]} since {clock(current.since)}
           </p>
@@ -61,7 +63,21 @@ function Hero() {
             {duration(current.elapsed)}
           </p>
         </div>
+        {!adjusting && (
+          <Button
+            variant="ghost"
+            onClick={() => setAdjusting(true)}
+            title="Fix when this started, or add what you did before"
+          >
+            <Pencil size={16} /> Adjust
+          </Button>
+        )}
       </div>
+      {adjusting ? (
+        <AdjustPast key={current.eventId} onClose={() => setAdjusting(false)} />
+      ) : (
+        current.elapsed < 5 && <StartedEarlier />
+      )}
       {limit > 0 && (
         <div className="mt-4">
           <Meter
