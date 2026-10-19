@@ -52,6 +52,9 @@ cargo build --manifest-path backend/Cargo.toml && npm run test:ui
 nix build .#container && docker load < result && node scripts/verify-container.mjs
 ```
 
+`npm run sounds` renders every alert sound (style × level) to WAV in
+`test-results/sounds/` with peak and loudness, for tuning by ear.
+
 `npm run test:ui` drives the built app in Chromium against a temporary
 database (fake clock for suggestions, notifications and sleep; two devices
 for live sync) and writes screenshots to `test-results/`.

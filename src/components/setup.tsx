@@ -28,7 +28,10 @@ export function SetupBanner() {
       setDevice({ idleDetection: true })
     setPermission(await requestNotifications())
     setDevice({ setupDone: true })
-    setTimeout(() => device.sound && chime(1, device.volume), 100)
+    setTimeout(
+      () => device.sound && chime(1, device.volume, device.soundStyle),
+      100,
+    )
   }
 
   return (

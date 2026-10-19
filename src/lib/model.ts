@@ -1,3 +1,5 @@
+import type { SoundStyle } from './sound.ts'
+
 export const ACTIVITIES = [
   'sit',
   'stand',
@@ -77,6 +79,7 @@ export interface Device {
   alerts: boolean
   sound: boolean
   volume: number
+  soundStyle: SoundStyle
   idleDetection: boolean
   /** The one-time permissions prompt was answered or dismissed. */
   setupDone: boolean
@@ -88,6 +91,7 @@ export const DEFAULT_DEVICE: Device = {
   alerts: true,
   sound: true,
   volume: 0.7,
+  soundStyle: 'chime',
   idleDetection: false,
   setupDone: false,
 }

@@ -8,7 +8,13 @@ import {
   notify,
   requestNotifications,
 } from '../lib/notify.ts'
-import { chime, unlockAudio } from '../lib/sound.ts'
+import {
+  SOUND_LABELS,
+  SOUND_STYLES,
+  chime,
+  unlockAudio,
+  type SoundStyle,
+} from '../lib/sound.ts'
 
 function Field({
   label,
@@ -205,6 +211,10 @@ function SharedSettings() {
 
 function DeviceSettings() {
   const { device, setDevice } = useApp()
+  const preview = (level: number, style: SoundStyle = device.soundStyle) => {
+    unlockAudio()
+    setTimeout(() => chime(level, device.volume, style), 50)
+  }
   const [permission, setPermission] = useState(() =>
     notificationsSupported() ? Notification.permission : 'unsupported',
   )
@@ -267,33 +277,52 @@ function DeviceSettings() {
           checked={device.sound}
           onChange={(v) => setDevice({ sound: v })}
         />
+        <Field label="Sound style" hint="Tap one to hear it.">
+          <span
+            className="flex flex-wrap gap-1.5"
+            role="radiogroup"
+            aria-label="Sound style"
+          >
+            {SOUND_STYLES.map((style) => (
+              <button
+                key={style}
+                type="button"
+                role="radio"
+                aria-checked={device.soundStyle === style}
+                onClick={() => {
+                  setDevice({ soundStyle: style })
+                  preview(1, style)
+                }}
+                className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                  device.soundStyle === style
+                    ? 'bg-ink text-card'
+                    : 'bg-sunken text-ink'
+                }`}
+              >
+                {SOUND_LABELS[style]}
+              </button>
+            ))}
+          </span>
+        </Field>
         <Field label="Volume">
-          <span className="flex items-center gap-2">
-            <input
-              type="range"
-              min={0.1}
-              max={1}
-              step={0.05}
-              value={device.volume}
-              onChange={(e) => setDevice({ volume: Number(e.target.value) })}
-              className="w-28 accent-[var(--sit)]"
-            />
-            <Button
-              onClick={() => {
-                unlockAudio()
-                setTimeout(() => chime(1, device.volume), 50)
-              }}
-            >
-              Soft
-            </Button>
-            <Button
-              onClick={() => {
-                unlockAudio()
-                setTimeout(() => chime(3, device.volume), 50)
-              }}
-            >
-              Loud
-            </Button>
+          <input
+            type="range"
+            min={0.1}
+            max={1}
+            step={0.05}
+            value={device.volume}
+            onChange={(e) => setDevice({ volume: Number(e.target.value) })}
+            className="w-36 accent-[var(--sit)]"
+          />
+        </Field>
+        <Field
+          label="Preview"
+          hint="A suggestion pings gently; only the stillness alarm escalates."
+        >
+          <span className="flex flex-wrap gap-1.5">
+            <Button onClick={() => preview(1)}>Gentle</Button>
+            <Button onClick={() => preview(2)}>Nudge</Button>
+            <Button onClick={() => preview(3)}>Alarm</Button>
           </span>
         </Field>
         <Toggle

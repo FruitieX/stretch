@@ -312,7 +312,7 @@ export function useEngine(store: Store, device: Device) {
     const fired = load<string[]>(FIRED_KEY, [])
     if (fired.includes(alert.key)) return
     persist(FIRED_KEY, [...fired.slice(-49), alert.key])
-    if (device.sound) chime(alert.level, device.volume)
+    if (device.sound) chime(alert.level, device.volume, device.soundStyle)
     const target = p.suggestion
       ? p.suggestion.activity === 'break' && p.suggestion.then
         ? 'break'

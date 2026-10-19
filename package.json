@@ -11,7 +11,8 @@
     "test:ui": "node scripts/verify.mjs",
     "icons": "node scripts/make-icons.mjs",
     "format": "prettier --write src scripts docs README.md AGENTS.md package.json vite.config.ts tsconfig.json .github",
-    "format:check": "prettier --check src scripts docs README.md AGENTS.md package.json vite.config.ts tsconfig.json .github"
+    "format:check": "prettier --check src scripts docs README.md AGENTS.md package.json vite.config.ts tsconfig.json .github",
+    "sounds": "node scripts/render-sounds.mjs"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
