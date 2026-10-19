@@ -8,6 +8,7 @@ import {
   paint,
   replaced,
   slideBlock,
+  switchTo,
   type Mark,
 } from './edit.ts'
 
@@ -252,5 +253,42 @@ describe('slideBlock', () => {
       '09:40 off',
       '10:00 walk',
     ])
+  })
+})
+
+describe('switchTo', () => {
+  const sec = 1000
+
+  it('adds a change after the latest one has lasted a minute', () => {
+    const marks = [m('a', '10:00', 'sit')]
+    expect(view(switchTo(marks, 'stand', at('10:01')))).toEqual([
+      '10:00 sit',
+      '10:01 stand',
+    ])
+  })
+
+  it('relabels a change made less than a minute ago', () => {
+    const marks = [m('a', '09:00', 'walk'), m('b', '10:00', 'sit')]
+    const after = switchTo(marks, 'stand', at('10:00') + 40 * sec)
+    expect(view(after)).toEqual(['09:00 walk', '10:00 stand'])
+    expect(diff(marks, after)).toMatchObject({
+      add: [],
+      remove: [],
+      update: [{ id: 'b' }],
+    })
+  })
+
+  it('switching straight back drops the brief change', () => {
+    const marks = [m('a', '09:00', 'walk'), m('b', '10:00', 'sit')]
+    expect(view(switchTo(marks, 'walk', at('10:00') + 20 * sec))).toEqual([
+      '09:00 walk',
+    ])
+  })
+
+  it("doesn't reach into yesterday", () => {
+    const marks = [m('a', '00:00', 'sit')]
+    const lateYesterday = at('00:00') - 30 * sec
+    const y = [{ ...marks[0], at: lateYesterday }]
+    expect(switchTo(y, 'stand', at('00:00')).length).toBe(2)
   })
 })

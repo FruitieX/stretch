@@ -223,3 +223,36 @@ export function slideBlock(
     j === i || j === i + 1 ? { ...m, at: m.at + d } : m,
   )
 }
+
+/** A switch this soon after the previous one corrects it instead. */
+export const QUICK_SWITCH = 60_000
+
+/**
+ * Switches to `activity` now. Within `QUICK_SWITCH` of the latest change,
+ * that change is relabelled (keeping its start) rather than leaving a
+ * sub-minute block behind; switching straight back to the activity before
+ * it drops the brief change altogether.
+ */
+export function switchTo(
+  marks: Mark[],
+  activity: Activity,
+  now: number,
+): Mark[] {
+  // The latest change, allowing for another device's clock running ahead.
+  let i = -1
+  marks.forEach((m, j) => {
+    if (m.at <= now + QUICK_SWITCH) i = j
+  })
+  const last = marks[i]
+  const recent =
+    last?.id && now - last.at < QUICK_SWITCH && dayKey(last.at) === dayKey(now)
+  if (!recent) return [...marks, { at: now, activity, source: 'manual' }]
+  if (last.activity === activity) return marks
+  const prev = marks[i - 1]
+  if (prev && prev.activity === activity && dayKey(prev.at) === dayKey(now)) {
+    return marks.filter((_, j) => j !== i)
+  }
+  return marks.map((m, j) =>
+    j === i ? { ...m, activity, source: 'manual' } : m,
+  )
+}

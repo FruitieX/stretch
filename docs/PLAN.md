@@ -68,6 +68,12 @@ and alerts with a sound and an OS notification when it is time to move.
 - **Alerts:** only one tab per browser alerts (Web Locks); each device can
   turn alerts off. Sounds are synthesized with Web Audio.
 
+## Switching
+
+- A switch within a minute of the previous change corrects it: the change is
+  relabelled (keeping its start), and switching straight back to the activity
+  before it drops the brief change. No sub-minute blocks are recorded.
+
 ## Planner rules
 
 - No suggestions before the first activity of the day, after the workday

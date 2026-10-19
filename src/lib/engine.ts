@@ -14,7 +14,7 @@ import { deviceId } from './device.ts'
 import { load, persist, type Store } from './store.ts'
 import { MINUTE, dayKey, duration, isoLocal } from './time.ts'
 import { backfill, type Row } from './backfill.ts'
-import { diff, toMarks, type Mark } from './edit.ts'
+import { diff, switchTo, toMarks, type Mark } from './edit.ts'
 
 const TICK = 5000
 const FIRED_KEY = 'stretch.fired'
@@ -125,14 +125,44 @@ export function useEngine(store: Store, device: Device) {
     if (status.activeDevice !== me) setStatus({ activeDevice: me })
   }, [me, setStatus])
 
-  const choose = useCallback(
-    (activity: Activity, at?: number) => {
-      latest.current.store.record(activity, at)
+  /** Applies a timeline edit (see edit.ts) as saves and deletes. */
+  const applyEdit = useCallback(
+    (change: (marks: Mark[], now: number) => Mark[]) => {
+      const { store } = latest.current
+      const before = toMarks(store.events)
+      const ops = diff(before, change(before, Date.now()))
+      for (const id of ops.remove) store.deleteEvent(id)
+      for (const m of ops.update) {
+        const event = store.events.find((e) => e.id === m.id)
+        if (event) {
+          store.saveEvent({
+            ...event,
+            at: isoLocal(m.at),
+            activity: m.activity,
+            source: 'manual',
+          })
+        }
+      }
+      for (const m of ops.add) store.record(m.activity, m.at, m.source)
       setReturned(null)
       claim()
-      void clearNotification()
+      return ops
     },
     [claim],
+  )
+
+  /** Switches activity now; a switch within a minute corrects the last one. */
+  const choose = useCallback(
+    (activity: Activity) => {
+      const ops = applyEdit((marks, now) => switchTo(marks, activity, now))
+      // "Not now" belonged to the activity that was just relabelled.
+      const snoozed = latest.current.status.snooze?.eventId
+      if (snoozed && ops.update.some((m) => m.id === snoozed)) {
+        setStatus({ snooze: undefined })
+      }
+      void clearNotification()
+    },
+    [applyEdit, setStatus],
   )
 
   const snooze = useCallback(() => {
@@ -369,27 +399,7 @@ export function useEngine(store: Store, device: Device) {
       claim()
       return null
     },
-    /** Applies a timeline edit (see edit.ts) as saves and deletes. */
-    editTimeline: (change: (marks: Mark[], now: number) => Mark[]) => {
-      const { store } = latest.current
-      const before = toMarks(store.events)
-      const ops = diff(before, change(before, Date.now()))
-      for (const id of ops.remove) store.deleteEvent(id)
-      for (const m of ops.update) {
-        const event = store.events.find((e) => e.id === m.id)
-        if (event) {
-          store.saveEvent({
-            ...event,
-            at: isoLocal(m.at),
-            activity: m.activity,
-            source: 'manual',
-          })
-        }
-      }
-      for (const m of ops.add) store.record(m.activity, m.at, m.source)
-      setReturned(null)
-      claim()
-    },
+    editTimeline: applyEdit,
     setCall: (minutes: number | null) =>
       setStatus({
         callUntil: minutes ? Date.now() + minutes * MINUTE : undefined,

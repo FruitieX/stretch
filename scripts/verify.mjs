@@ -213,6 +213,21 @@ try {
   await past.goto(origin)
   await past.getByRole('button', { name: 'Later' }).click()
   await past.getByRole('button', { name: 'Sit', exact: true }).click()
+  // Switching within a minute corrects the last switch instead of adding one.
+  await past.getByRole('button', { name: 'Stand', exact: true }).click()
+  await past.getByText('Standing since 09:30').waitFor()
+  await past.getByRole('button', { name: 'Sit', exact: true }).click()
+  await past.getByText('Sitting since 09:30').waitFor()
+  const tomorrow = todayAt('00:00').getTime() + 86400000
+  await eventually(async () => {
+    const from = encodeURIComponent(new Date(tomorrow).toISOString())
+    const state = await (await fetch(`${origin}/api/state?from=${from}`)).json()
+    const changes = state.events.filter((e) => Date.parse(e.at) >= tomorrow)
+    assert.deepEqual(
+      changes.map((e) => e.activity),
+      ['sit'],
+    )
+  })
   await past.getByRole('button', { name: '1h ago' }).click()
   await past.getByText('Sitting since 08:30').waitFor()
   await past.getByRole('button', { name: 'Adjust' }).click()
