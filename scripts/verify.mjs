@@ -402,6 +402,47 @@ try {
   assert.equal(await align.getByText('Stopped tracking').count(), 0)
   await align.context().close()
 
+  // --- Ending the current activity earlier ----------------------------------
+  const late = await (await context()).newPage()
+  const lateDay = 3 * 86400000
+  await late.clock.install({
+    time: new Date(todayAt('11:00').getTime() + lateDay),
+  })
+  await late.goto(origin)
+  await late.getByRole('button', { name: 'Later' }).click()
+  await late.getByRole('button', { name: 'Sit', exact: true }).click()
+  await late.getByRole('button', { name: 'Adjust' }).click()
+  await late.getByRole('button', { name: '1h ago' }).click()
+  await late.getByRole('button', { name: 'Save' }).click()
+  await late.getByText('Sitting since 10:00').waitFor()
+  const lateBar = late.getByRole('group', { name: /Today's timeline/ })
+  const lb = await lateBar.boundingBox()
+  const [ls, le] = await lateBar.evaluate((el) => [
+    Number(el.dataset.start),
+    Number(el.dataset.end),
+  ])
+  const t1030 = todayAt('10:30').getTime() + lateDay
+  await late.mouse.click(
+    lb.x + ((t1030 - ls) / (le - ls)) * lb.width,
+    lb.y + lb.height / 2,
+  )
+  await late.getByLabel('until now').uncheck()
+  await late.getByLabel('To', { exact: true }).fill('10:40')
+  await late
+    .getByRole('radiogroup', { name: 'Then until now' })
+    .getByRole('radio', { name: 'Stand' })
+    .click()
+  await late.screenshot({
+    path: 'test-results/end-current.png',
+    fullPage: true,
+  })
+  await late.getByRole('button', { name: 'Save' }).click()
+  await late.getByText('Standing since 10:40').waitFor()
+  await late.getByRole('link', { name: 'Today' }).click()
+  await late.getByRole('button', { name: /^10:00\s*Sitting.*40 min/ }).waitFor()
+  await late.getByRole('button', { name: /^10:40\s*Standing/ }).waitFor()
+  await late.context().close()
+
   // --- Two devices sync live ------------------------------------------------
   const laptop = await (await context()).newPage()
   const phone = await (

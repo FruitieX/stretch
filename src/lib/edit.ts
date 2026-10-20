@@ -41,7 +41,9 @@ function tidy(marks: Mark[], from: number, to: number): Mark[] {
   for (const m of marks) {
     const prev = out[out.length - 1]
     const inWindow = m.at >= from && m.at <= to
-    const repeat = prev ? prev.activity === m.activity : m.activity === 'off'
+    // Each day starts untracked, so a change never repeats yesterday's.
+    const sameDay = prev && dayKey(prev.at) === dayKey(m.at)
+    const repeat = sameDay ? prev.activity === m.activity : m.activity === 'off'
     if (inWindow && repeat) continue
     out.push(m)
   }
@@ -309,4 +311,29 @@ export function switchTo(
   return marks.map((m, j) =>
     j === i ? { ...m, activity, source: 'manual' } : m,
   )
+}
+
+/**
+ * Ends the current activity at `end` (it was really `activity` from `from`)
+ * and records `then` from `end` until now, for "I switched and forgot to
+ * tap it".
+ */
+export function endCurrent(
+  marks: Mark[],
+  span: SpanRef,
+  activity: Activity,
+  from: number,
+  end: number,
+  then: Activity,
+  now: number,
+): Mark[] {
+  const relabelled = editSpan(
+    marks,
+    { ...span, open: true },
+    activity,
+    from,
+    now,
+    now,
+  )
+  return end < now ? paint(relabelled, end, now, then, now) : relabelled
 }

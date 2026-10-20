@@ -4,6 +4,7 @@ import {
   deleteSpan,
   diff,
   editSpan,
+  endCurrent,
   moveEdge,
   paint,
   replaced,
@@ -325,4 +326,61 @@ describe('closing gaps', () => {
     expect(snapTime(at('10:06'), [at('10:02')])).toBe(at('10:05'))
     expect(snapTime(at('10:06'), [])).toBe(at('10:05'))
   })
+})
+
+describe('endCurrent', () => {
+  const marks = [m('a', '09:00', 'stand'), m('b', '10:00', 'sit')]
+  const current = { id: 'b', start: at('10:00'), end: now, open: true }
+
+  it('ends the current activity earlier and starts the forgotten one', () => {
+    const after = endCurrent(
+      marks,
+      current,
+      'sit',
+      at('10:00'),
+      at('10:40'),
+      'stand',
+      now,
+    )
+    expect(view(after)).toEqual(['09:00 stand', '10:00 sit', '10:40 stand'])
+    expect(diff(marks, after)).toMatchObject({
+      remove: [],
+      add: [{ activity: 'stand' }],
+    })
+  })
+
+  it('can also move the start and relabel at the same time', () => {
+    const after = endCurrent(
+      marks,
+      current,
+      'walk',
+      at('10:15'),
+      at('10:30'),
+      'eat',
+      now,
+    )
+    expect(view(after)).toEqual(['09:00 stand', '10:15 walk', '10:30 eat'])
+  })
+})
+
+it("keeps today's first change even if yesterday ended the same way", () => {
+  const yesterday = {
+    id: 'y',
+    at: at('15:00') - 86_400_000,
+    activity: 'sit' as const,
+    source: 'manual' as const,
+  }
+  const marks = [yesterday, m('a', '10:00', 'sit')]
+  const current = { id: 'a', start: at('10:00'), end: now, open: true }
+  const after = endCurrent(
+    marks,
+    current,
+    'sit',
+    at('10:00'),
+    at('10:40'),
+    'stand',
+    now,
+  )
+  expect(view(after).slice(1)).toEqual(['10:00 sit', '10:40 stand'])
+  expect(diff(marks, after).remove).toEqual([])
 })

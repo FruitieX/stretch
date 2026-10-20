@@ -8,6 +8,7 @@ import {
   deleteSpan,
   edgeLimits,
   editSpan,
+  endCurrent,
   moveEdge,
   paint,
   replaced,
@@ -451,25 +452,45 @@ function BlockEditor({
   const [untilNow, setUntilNow] = useState(
     span?.open ?? initialEnd >= now - MINUTE,
   )
+  // Ending the current activity early: what came after it, until now.
+  const endingCurrent = Boolean(span?.open && !untilNow)
+  const [then, setThen] = useState<Activity>(
+    span?.activity === 'sit' ? 'stand' : 'sit',
+  )
   const stop = untilNow ? now : end
-  const valid = start < stop && start <= now
+  const valid = start < stop && start <= now && stop <= now
 
   const apply = (marks: Change[], t: number) =>
-    span
-      ? editSpan(
+    span && endingCurrent
+      ? endCurrent(
           marks,
           {
             id: span.eventId,
             start: span.start,
             end: span.end,
-            open: span.open,
+            open: true,
           },
           activity,
           start,
-          untilNow ? t : end,
+          end,
+          then,
           t,
         )
-      : paint(marks, start, untilNow ? t : end, activity, t)
+      : span
+        ? editSpan(
+            marks,
+            {
+              id: span.eventId,
+              start: span.start,
+              end: span.end,
+              open: span.open,
+            },
+            activity,
+            start,
+            untilNow ? t : end,
+            t,
+          )
+        : paint(marks, start, untilNow ? t : end, activity, t)
 
   // Blocks can't overlap: whatever the new times fully cover is replaced,
   // so say so before saving.
@@ -532,21 +553,55 @@ function BlockEditor({
             className="rounded-full bg-card px-3 py-1 ring-1 ring-line"
           />
         )}
-        {!span?.open && (
-          <label className="flex items-center gap-1.5 text-ink-2">
-            <input
-              type="checkbox"
-              checked={untilNow}
-              onChange={(e) => setUntilNow(e.target.checked)}
-              className="accent-[var(--sit)]"
-            />
-            until now
-          </label>
-        )}
+        <label className="flex items-center gap-1.5 text-ink-2">
+          <input
+            type="checkbox"
+            checked={untilNow}
+            onChange={(e) => {
+              setUntilNow(e.target.checked)
+              // Unticking on the current activity: start from a sensible end.
+              if (!e.target.checked && end >= now - MINUTE) {
+                setEnd(
+                  Math.max(start + SNAP, Math.floor(now / SNAP) * SNAP - SNAP),
+                )
+              }
+            }}
+            className="accent-[var(--sit)]"
+          />
+          until now
+        </label>
         <span className="ml-auto text-xs tabular-nums text-ink-3">
           {valid ? duration((stop - start) / MINUTE) : 'Check the times'}
         </span>
       </div>
+      {endingCurrent && (
+        <div className="flex flex-wrap items-center gap-1.5 text-sm">
+          <span className="mr-1 text-ink-2">Then, until now:</span>
+          <span
+            className="flex flex-wrap gap-1.5"
+            role="radiogroup"
+            aria-label="Then until now"
+          >
+            {CHOICES.map((a) => (
+              <button
+                key={a}
+                type="button"
+                role="radio"
+                aria-checked={then === a}
+                onClick={() => setThen(a)}
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold ring-1 ${
+                  then === a
+                    ? 'text-white ring-transparent'
+                    : 'bg-card ring-line'
+                }`}
+                style={then === a ? { background: color(a) } : undefined}
+              >
+                <ActivityIcon activity={a} size={14} /> {LABELS[a]}
+              </button>
+            ))}
+          </span>
+        </div>
+      )}
       {lost.length > 0 && (
         <p className="text-xs text-alarm" role="status">
           Replaces {lost.join(', ')}.
