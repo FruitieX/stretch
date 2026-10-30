@@ -7,9 +7,9 @@
     build = system: let
       pkgs = import nixpkgs {inherit system;};
       frontend = pkgs.buildNpmPackage {
-        pname = "stretch-ui"; version = "0.1.0"; nodejs = pkgs.nodejs_22;
+        pname = "stretch-ui"; version = "0.1.0"; nodejs = pkgs.nodejs_26;
         src = pkgs.lib.cleanSourceWith {src = ./.; filter = path: type: !(builtins.elem (baseNameOf path) ["node_modules" "target" "dist" ".git" "data" "test-results" "result" "backend" "docs" ".github" "flake.nix" "flake.lock"]);};
-        npmDepsHash = "sha256-fLihYh3tW2Qg93rG39ReywfmTwNPLm7NpxoPyINIyeg=";
+        npmDepsHash = "sha256-bcTUXK0DbwtNEXanoiZMUU1zX3E8ImEN+m19ZN8b3eI=";
         installPhase = ''mkdir -p $out/share/stretch; cp -r dist/. $out/share/stretch/'';
       };
       backend = pkgs.rustPlatform.buildRustPackage {
@@ -35,7 +35,7 @@
       };
     });
     devShells = each (system: let pkgs = (build system).pkgs; in {default = pkgs.mkShell {
-      packages = with pkgs; [nodejs_22 cargo rustc rustfmt clippy gcc pkg-config chromium];
+      packages = with pkgs; [nodejs_26 cargo rustc rustfmt clippy gcc pkg-config chromium];
       shellHook = ''export PLAYWRIGHT_CHROMIUM_EXECUTABLE=${pkgs.chromium}/bin/chromium'';
     };});
   };

@@ -174,7 +174,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         if std::path::Path::new(&dest).exists() {
             return Err("The backup destination already exists".into());
         }
-        db.backup("main", &dest, None)?;
+        db.backup("main", &dest, None::<fn(rusqlite::backup::Progress)>)?;
         return Ok(());
     }
     let bind = std::env::var("STRETCH_BIND").unwrap_or("127.0.0.1:3005".into());
