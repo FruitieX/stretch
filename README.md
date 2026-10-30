@@ -91,3 +91,7 @@ browser contexts for live sync. It writes screenshots to `test-results/`.
 
 `npm run sounds` renders every alert sound to WAV in `test-results/sounds/`
 with peak and loudness figures, for tuning by ear.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
