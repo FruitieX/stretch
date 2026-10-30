@@ -47,8 +47,8 @@ and alerts with a sound and an OS notification when it is time to move.
   (code-based routes), lucide icons. Installable PWA with a service worker
   that caches the shell and handles notification action buttons.
 - **Backend:** Rust, Axum, SQLite (`rusqlite`), one unprivileged Nix-built
-  container serving the API and the static frontend (same shape as Steady
-  and LittleCupboard). No auth; only routed through the private gateway.
+  container serving the API and the static frontend (same shape as the
+  owner's other self-hosted apps). No auth; only routed through the private gateway.
 - **Data model:** an append-mostly log of **activity changes**
   (`id, at, activity, source`). Each change lasts until the next one, so
   concurrent devices merge by union and never conflict. Edits are idempotent
