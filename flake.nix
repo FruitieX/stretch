@@ -9,7 +9,9 @@
       frontend = pkgs.buildNpmPackage {
         pname = "stretch-ui"; version = "0.1.0"; nodejs = pkgs.nodejs_26;
         src = pkgs.lib.cleanSourceWith {src = ./.; filter = path: type: !(builtins.elem (baseNameOf path) ["node_modules" "target" "dist" ".git" "data" "test-results" "result" "backend" "docs" ".github" "flake.nix" "flake.lock"]);};
-        npmDepsHash = "sha256-bcTUXK0DbwtNEXanoiZMUU1zX3E8ImEN+m19ZN8b3eI=";
+        # Read from package-lock.json, so dependency updates need no hash bump.
+        npmDeps = pkgs.importNpmLock { npmRoot = ./.; };
+        npmConfigHook = pkgs.importNpmLock.npmConfigHook;
         installPhase = ''mkdir -p $out/share/stretch; cp -r dist/. $out/share/stretch/'';
       };
       backend = pkgs.rustPlatform.buildRustPackage {
