@@ -356,6 +356,14 @@ export function SettingsPage() {
           <kbd>N</kbd> is “Not now”.
         </p>
       </Card>
+      <p className="px-2 text-xs text-ink-3">
+        Fonts: Bricolage Grotesque and Figtree, under the SIL Open Font License
+        (
+        <a href="/third-party-licenses.txt" className="underline">
+          licences
+        </a>
+        ).
+      </p>
     </div>
   )
 }
