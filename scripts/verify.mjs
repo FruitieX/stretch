@@ -128,10 +128,12 @@ try {
   // --- A day on a fake clock -------------------------------------------------
   const desk = await context()
   const page = await desk.newPage()
-  page.on('pageerror', (e) => console.error('page error:', e))
+  // Dependency bumps must not introduce runtime errors on the main page.
+  const pageErrors = []
+  page.on('pageerror', (e) => pageErrors.push(`page error: ${e}`))
   page.on(
     'console',
-    (m) => m.type() === 'error' && console.error('console:', m.text()),
+    (m) => m.type() === 'error' && pageErrors.push(`console: ${m.text()}`),
   )
   await page.addInitScript(captureNotifications)
   await page.clock.install({ time: todayAt('09:00') })
@@ -480,6 +482,7 @@ try {
     assert.ok(w <= 390, `no horizontal scroll on ${name} (got ${w}px)`)
   }
 
+  assert.deepEqual(pageErrors, [], 'no errors on the main page')
   console.log('UI verification passed')
 } catch (e) {
   console.error(logs)
